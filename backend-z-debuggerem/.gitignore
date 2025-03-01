@@ -1,0 +1,12 @@
+.vs
+.env
+.venv
+venv/
+.idea/
+.vscode/
+__pycache__/
+
+received/
+
+.DS_Store
+Thumbs.db
