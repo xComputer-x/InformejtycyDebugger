@@ -53,8 +53,8 @@ class DockerManager():
 	def run_for_checker(self, input_: str, memory_limit_MB: int, timeout: int) -> tuple[str, bytes]:
 		container_name = str(uuid4())
 
-		process = subprocess.Popen(["docker", "run", "--rm", "--network", "none", "-m", f"{memory_limit_MB}m", "--name", container_name, self.execution_image_name], stdout=subprocess.PIPE)
-		
+		process = subprocess.Popen(["docker", "run", "--rm", "--read-only", "--cap-drop=ALL", "--memory-swap=256m", "--network", "none", "-m", f"{memory_limit_MB}m", f"--cpus={DOCKER_CPU_LIMIT}", "--name", container_name, "-i", self.execution_image_name, "/app/a.out"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+				
 		status = ""
 		stdout = bytes()
 		try:

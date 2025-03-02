@@ -14,27 +14,30 @@ from code_checking.pack_loader import PackLoader
 from code_checking.commands import Compiler
 from debugger.debugger import GDBDebugger
 from logger import Logger
+from flask_cors import CORS
 
 app = Flask(__name__, static_url_path="", static_folder="static/", template_folder="templates/")
 app.config["SECRET_KEY"] = SECRET_KEY
 socketio = SocketIO(app, async_mode="eventlet")
-connected_socket_ids = set()
-
-# For returning results on http://localhost/status/<auth>
-# Server gets the auth given in url and give corresponding CheckResult
-results: dict[str: CheckResult] = {}
-results_lock = Lock()
-
-# To make sure app.config["debug_processes"] wouldn't be used by two processes in the same time
-debug_processes_lock = Lock()
+CORS(app)
 
 # To nicely display messages
+sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
+sys.stderr.reconfigure(encoding='utf-8', line_buffering=True)
 logger = Logger(display_logs=True)
 
 # Make sure received directory exists
 os.makedirs(RECEIVED_DIR, exist_ok=True)
 os.makedirs(COMPILED_DIR, exist_ok=True)
 os.makedirs(DEBUG_DIR, exist_ok=True)
+
+# For returning results on http://localhost/status/<auth>
+# Server gets the auth given in url and give corresponding CheckResult
+results: dict[str: tuple[str, int]] = {}
+results_lock = Lock()
+
+# To make sure app.config["debug_processes"] wouldn't be used by two processes in the same time
+debug_processes_lock = Lock()
 
 '''
 Server functions
@@ -67,6 +70,7 @@ def print_code_result(result: CheckResult, auth: str) -> None:
 
 # After RECEIVE_SUBMISSION_TIME seconds clears the result from results holding dictionary.
 def clean_results() -> None:
+    global results
 	while True:
 		eventlet.sleep(CLEANING_RESULTS_TIME)
 		with results_lock:
@@ -97,7 +101,7 @@ def main() -> None:
 
 # Setups server, after app.run() is called.
 with app.app_context():
-	pl = PackLoader('../tests', '.test', 'in', 'out', 'CONFIG')
+	pl = PackLoader(logger, '../tests', '.test', 'in', 'out', 'CONFIG')
 	compiler = Compiler(logger, 'g++', RECEIVED_DIR, COMPILED_DIR, DEBUG_DIR)
 	checker = Checker(logger, compiler, pl, DEBUG_DIR, GDB_PRINTERS_DIR)
 	
