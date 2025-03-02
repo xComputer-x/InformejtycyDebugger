@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import eventlet
 from threading import Thread, Lock
@@ -70,7 +71,7 @@ def print_code_result(result: CheckResult, auth: str) -> None:
 
 # After RECEIVE_SUBMISSION_TIME seconds clears the result from results holding dictionary.
 def clean_results() -> None:
-    global results
+	global results
 	while True:
 		eventlet.sleep(CLEANING_RESULTS_TIME)
 		with results_lock:
@@ -147,9 +148,9 @@ def code_submission() -> tuple[str, int]:
 	checker.push_check(filename, problem_id, auth, print_code_result)
 	
 	return jsonify(
-        status="Accepted, wait for results",
+		status="Accepted, wait for results",
 		authorization=auth
-    ), 202
+	), 202
 
 # Captures demo site request.
 @app.route('/', methods=["GET"])
