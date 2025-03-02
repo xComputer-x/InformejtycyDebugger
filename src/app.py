@@ -3,10 +3,9 @@ import sys
 import time
 import eventlet
 from threading import Thread, Lock
-from flask import Flask, request, Response, jsonify, copy_current_request_context, render_template, url_for, make_response, redirect
+from flask import Flask, request, Response
 from flask_socketio import SocketIO, emit
 from uuid import uuid4
-from sys import modules
 
 from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME
 from compiler_manager import Compiler
@@ -72,7 +71,7 @@ with app.app_context():
 	lt = Thread(target=clean_unused_debug_processes)
 	lt.start()
 
-	logger.debug(f"Cleaning processes have started", main)
+	logger.debug(f"Cleaning process has started", main)
 
 	# For debugging
 	# Server use it to indentify debugging processes
@@ -102,8 +101,8 @@ def handle_debug_ping(data: dict[str: str]) -> None:
 	authorization = data["authorization"]
 	logger.spam(f"Client pinged debugger with authorization: {authorization}", handle_debug_ping)
 
-	if authorization in app.config["debug_processes"]:
-		with debug_processes_lock:
+	with debug_processes_lock:
+		if authorization in app.config["debug_processes"]:
 			app.config["debug_processes"][authorization].ping()
 			emit("pong", {"status": "ok"})
 

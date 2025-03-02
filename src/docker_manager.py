@@ -57,12 +57,12 @@ class DockerManager():
 	def run_for_debugger(self, input_: str, memory_limit_MB: int) -> tuple[pexpect.spawnu, str, str]:
 		container_name = str(uuid4())
 
-		with open(f"{self.debug_dir}/input.txt", "w") as f:
+		with open(f"{self.debug_dir}/input_{container_name}.txt", "w") as f:
 			f.write(input_)
 
-		process = pexpect.spawnu("docker", ["--rm", "--cap-drop=ALL", "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined", "--memory-swap=256m", "--read-only", "-v", "/tmp/tmp", "--cpus=1", "--network=none", "--memory", f"{memory_limit_MB}m", "--name", container_name, "-it", self.debug_image_name, "gdb", "/app/a.out", "--interpreter=mi3"], timeout=5)
+		process = pexpect.spawnu("docker", ["run", "--rm", "--cap-drop=ALL", "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined", "--memory-swap=256m", "--read-only", "-v", "/tmp/tmp", "--cpus=1", "--network=none", "--memory", f"{memory_limit_MB}m", "--name", container_name, "-it", self.debug_image_name, "gdb", "/app/a.out", "--interpreter=mi3"], timeout=5)
 
-		return (process, container_name, "input.txt")
+		return (process, container_name, f"input_{container_name}.txt")
 
 	'''
 	Additional methods.

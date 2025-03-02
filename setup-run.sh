@@ -5,4 +5,4 @@ printf "\033[38:5:218mWarning:\033[0m this is only for testing. On the server us
 
 app_dir=src
 
-venv/bin/python3.13 $app_dir/app.py 
+venv/bin/python3.12 $app_dir/app.py 

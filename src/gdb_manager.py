@@ -1,7 +1,6 @@
 import os
 import time
 import pexpect
-from pygdbmi.gdbcontroller import GdbController
 from uuid import uuid4
 from pprint import pprint
 from typing import Optional
@@ -41,6 +40,7 @@ class GDBDebugger:
 		self.compiled_file_name = ""
 		self.process: Optional[pexpect.spawnu] = None
 		self.container_name: str = ""
+		self.stdin_input_file: str = ""
 
 		self.docker_manager = DockerManager(self.debug_dir, self.gdb_printers_dir)
 		self.memory_limit_MB = 128
@@ -79,7 +79,16 @@ class GDBDebugger:
 			self.logger.alert(f"Building error: {status}", self.run)
 			return (-2, stdout)
 
-		self.process, self.container_name, stdin_input_file = self.docker_manager.run_for_debugger(input_, self.memory_limit_MB)
+		self.process, self.container_name, self.stdin_input_file = self.docker_manager.run_for_debugger(input_, self.memory_limit_MB)
+
+		try:
+			self.process.expect_exact("(gdb)")
+			self.logger.debug(f"Process has been correctly started!", self.run)
+		except:
+			self.logger.alert("Starting went wrong...", self.run)
+
+		self.logger.spam(self.process.before, self.run)
+
 		return (0, bytes())
 
 	def stop(self) -> None:
@@ -94,6 +103,9 @@ class GDBDebugger:
 		
 		if os.path.exists(os.path.join(self.received_dir, self.input_file_name)):
 			os.remove(os.path.join(self.received_dir, self.input_file_name))
+
+		if os.path.exists(os.path.join(self.debug_dir, self.stdin_input_file)):
+			os.remove(os.path.join(self.debug_dir, self.stdin_input_file))
 
 		if self.process:
 			self.process.close(force=True)
