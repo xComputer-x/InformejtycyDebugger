@@ -9,6 +9,7 @@ import docker_response_status as DckStatus
 from compiler_manager import Compiler
 from docker_manager import DockerManager
 from logger import Logger
+from server import DEBUGGER_MEMORY_LIMIT_MB
 
 class GDBDebugger:
 	'''
@@ -43,7 +44,6 @@ class GDBDebugger:
 		self.stdin_input_file: str = ""
 
 		self.docker_manager = DockerManager(self.debug_dir, self.gdb_printers_dir)
-		self.memory_limit_MB = 128
 
 	def ping(self) -> None:
 		'''
@@ -79,7 +79,7 @@ class GDBDebugger:
 			self.logger.alert(f"Building error: {status}", self.run)
 			return (-2, stdout)
 
-		self.process, self.container_name, self.stdin_input_file = self.docker_manager.run_for_debugger(input_, self.memory_limit_MB)
+		self.process, self.container_name, self.stdin_input_file = self.docker_manager.run_for_debugger(input_, DEBUGGER_MEMORY_LIMIT_MB)
 
 		try:
 			self.process.expect_exact("(gdb)")
