@@ -1,13 +1,14 @@
 import os
 import time
+import pexpect
 from pygdbmi.gdbcontroller import GdbController
 from uuid import uuid4
 from pprint import pprint
 from typing import Optional
 
 import docker_manager.docker_response_status as DckStatus
-from code_checking.commands import Compiler
-from docker_manager.manager import DockerManager
+from compiler import Compiler
+from docker_manager import DockerManager
 from logger import Logger
 
 class GDBDebugger:
@@ -41,7 +42,7 @@ class GDBDebugger:
 		self.process: Optional[pexpect.spawnu] = None
 		self.container_name: str = ""
 
-		self.docker_manager = DockerManager(self.compiler.output_dir, self.debug_dir, self.gdb_printers_dir)
+		self.docker_manager = DockerManager(self.debug_dir, self.gdb_printers_dir)
 		self.memory_limit_MB = 128
 
 	def ping(self) -> None:

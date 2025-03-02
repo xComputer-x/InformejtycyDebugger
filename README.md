@@ -72,4 +72,4 @@ Należy zignorować pojawiające się w konsoli informacje typu `can't kill con
 
 ## Uwaga do dockera nr 2 <a name="Uwaga-do-dockera-nr-2"></a>
 
-Jeżeli poprawny program nie chce się skompilować, może to oznaczać, że brakuje bibliotek. Należy w funkcji `docker_manager.manager.DockerManager.build_for_checker()` dodać tą lub/i inne do zmiennej `content` w polu `RUN apk add...`.
+Jeżeli poprawny program nie chce się skompilować, może to oznaczać, że brakuje bibliotek. Należy w funkcji `docker_manager.DockerManager.build_for_checker()` dodać tą lub/i inne do zmiennej `content` w polu `RUN apk add...`.

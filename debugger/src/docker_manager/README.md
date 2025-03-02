@@ -1,1 +1,0 @@
-Ten folder zawiera program zarządzający dockerem. Do jego poprawnego działania wymagany jest zainstalowany docker oraz uruchomiony (albo docker desktop w tle, albo docker daemon).
