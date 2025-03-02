@@ -62,7 +62,7 @@ class GDBDebugger:
 
 		self.logger.debug("Compiling for debugging", self.run)
 
-		output_file_name = self.compiler.compile(self.input_file_name, debug=True)
+		output_file_name = self.compiler.compile(self.input_file_name)
 
 		if not os.path.exists(os.path.join(self.debug_dir, output_file_name)):
 			return -1
@@ -93,6 +93,7 @@ class GDBDebugger:
 			self.compiled_file_name = ""
 		os.remove(os.path.join(self.received_dir, self.input_file_name))
 
-		self.process.close(force=True)
-		self.process = None
+		if self.process:
+			self.process.close(force=True)
+			self.process = None
 		self.docker_manager.stop_container(self.container_name)
