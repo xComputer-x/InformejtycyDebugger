@@ -54,7 +54,7 @@ class GDBDebugger:
 	def pprint_response(self, response: dict) -> None:
 		pprint(response)
 
-	def run(self, input_: str) -> int:
+	def run(self, input_: str) -> tuple[int, bytes]:
 		'''
 		Runs debug process (gdb).
 		:param input_: stdin to debugged process
@@ -62,10 +62,10 @@ class GDBDebugger:
 
 		self.logger.debug("Compiling for debugging", self.run)
 
-		output_file_name = self.compiler.compile(self.input_file_name)
+		output_file_name, stdout = self.compiler.compile(self.input_file_name)
 
 		if not os.path.exists(os.path.join(self.debug_dir, output_file_name)):
-			return -1
+			return (-1, stdout)
 
 		self.logger.debug("Building docker container", self.run)
 
@@ -77,10 +77,10 @@ class GDBDebugger:
 
 		if status in [DckStatus.docker_build_error, DckStatus.internal_docker_manager_error]:
 			self.logger.alert(f"Building error: {status}", self.run)
-			return -2
+			return (-2, stdout)
 
 		self.process, self.container_name, stdin_input_file = self.docker_manager.run_for_debugger(input_, self.memory_limit_MB)
-		return 0
+		return (0, bytes())
 
 	def stop(self) -> None:
 		'''
@@ -91,7 +91,9 @@ class GDBDebugger:
 		if self.compiled_file_name:
 			os.remove(os.path.join(self.debug_dir, self.compiled_file_name))
 			self.compiled_file_name = ""
-		os.remove(os.path.join(self.received_dir, self.input_file_name))
+		
+		if os.path.exists(os.path.join(self.received_dir, self.input_file_name)):
+			os.remove(os.path.join(self.received_dir, self.input_file_name))
 
 		if self.process:
 			self.process.close(force=True)

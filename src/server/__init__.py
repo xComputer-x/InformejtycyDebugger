@@ -9,3 +9,4 @@ GDB_PRINTERS_DIR: str = "./gdb_printer"
 SECRET_KEY: str = "gEe_5+aBG6;{4#X[bK^]k!w,mCLU-Mr" # Secret key used by flask_socketio for security
 RECEIVE_DEBUG_PING_TIME: int = 15 # After what time will not pinged Debugger class be deleted
 CLEANING_UNUSED_DBG_PROCESSES_TIME: int = 5 # How often should Debugger classes be checked for possible cleaning
+MAX_COMPILATION_ERROR_MESSAGE_LENGTH: int = 20 # How many bytes of error can be displayed

@@ -123,18 +123,26 @@ def handle_debugging(data: dict[str: str]) -> Response:
 	debugger_class = GDBDebugger(logger, compiler, DEBUG_DIR, GDB_PRINTERS_DIR, file_name)
 	app.config["debug_processes"][auth] = debugger_class
 
-	run_exit_code = debugger_class.run(data["input"])
+	run_exit_code, stdout = debugger_class.run(data["input"])
+
+	emit_name = "started_debugging"
+	data_to_be_sent: dict[str: str | bool] = dict({"authorization": "", "compilation_error": False, "compilation_error_details": ""})
+
 	if run_exit_code == -1:
-		emit("started_debugging", {"authorization": "", "compilation_error": True})
+		data_to_be_sent["compilation_error"] = True
+		data_to_be_sent["compilation_error_details"] = stdout.decode("utf-8")
 		logger.spam(f"Emitted \"start_debugging\" (with compilation_error) to {request.sid}", handle_debugging)
 
 	elif run_exit_code == -2:
-		emit("stopped_debugging")
+		emit_name = "stopped_debugging"
+		data_to_be_sent = {}
 		logger.spam(f"Emitted \"stopped_debugging\" to {request.sid}", handle_debugging)
 
 	else:
-		emit("started_debugging", {"authorization": auth, "compilation_error": False})
+		data_to_be_sent["authorization"] = auth
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
+
+	emit(emit_name, data_to_be_sent)
 
 	logger.debug("Stopping docker class", handle_debugging)
 	debugger_class.stop()

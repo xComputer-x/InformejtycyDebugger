@@ -2,6 +2,23 @@ import subprocess
 from os.path import join
 
 from logger import Logger
+from server import MAX_COMPILATION_ERROR_MESSAGE_LENGTH
+
+'''
+This function shortens compilation errors (C++ standard library errors suck)
+'''
+def shorten_bytes(a: bytes) -> bytes:
+	out = bytes()
+	lines = a.split(b'\n')
+
+	if len(lines) <= MAX_COMPILATION_ERROR_MESSAGE_LENGTH:
+		return a
+	
+	for i in range(MAX_COMPILATION_ERROR_MESSAGE_LENGTH):
+		out += lines[i]+b'\n'
+	out += b"...and " + bytes(str(len(lines[MAX_COMPILATION_ERROR_MESSAGE_LENGTH:])), "utf-8") + b" line(s) more"
+
+	return out
 
 class Compiler:
 	"""
@@ -19,7 +36,7 @@ class Compiler:
 		self.input_dir = input_dir
 		self.debug_output_dir = debug_output_dir
 
-	def compile(self, filename: str,) -> str:
+	def compile(self, filename: str,) -> tuple[str, bytes]:
 		"""
 		Compile a file
 		:param filename: Name of the file to compile (must sit in the input directory)
@@ -29,9 +46,12 @@ class Compiler:
 
 		command = [self.compiler, join(self.input_dir, filename), "-O2", "--std=c++23", "-g", "-o", join(self.debug_output_dir, target_filename)]
 
+		stdout = bytes()
+
 		try:
-			subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+			stdout = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE).stderr
+			stdout = shorten_bytes(stdout)
 		except FileNotFoundError:
 			self.logger.alert(f"{self.compiler} compiler is not installed!", self.compile)
 
-		return target_filename
+		return (target_filename, stdout)

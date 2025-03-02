@@ -43,10 +43,12 @@ socket.on("disconnect", () => {
 socket.on("started_debugging", (data) => {
     if (data.compilation_error) {
         turn_gui_back_from_debugging();
-        document.getElementById("status").textContent = "błąd kompilacji! Przerywanie debugowania!";
+        document.getElementById("status").textContent = "błąd kompilacji! Przerywanie debugowania! ";
+        document.getElementById("statusDetails").textContent = data.compilation_error_details;
     } else {
         turn_gui_into_debugging();
         document.getElementById("status").textContent = "sukces. Rozpoczęto debugowanie!";
+        document.getElementById("statusDetails").textContent = "";
 
         auth = data.authorization;
         console.log("Started debugging, auth:", auth);
