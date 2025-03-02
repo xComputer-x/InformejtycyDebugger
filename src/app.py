@@ -9,8 +9,8 @@ from uuid import uuid4
 from sys import modules
 
 from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME
-from compiler import Compiler
-from debugger import GDBDebugger
+from compiler_manager import Compiler
+from gdb_manager import GDBDebugger
 from logger import Logger
 from flask_cors import CORS
 

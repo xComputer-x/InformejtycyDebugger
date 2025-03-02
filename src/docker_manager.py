@@ -4,7 +4,7 @@ import pexpect
 import subprocess
 from uuid import uuid4
 
-import docker_manager.docker_response_status as DckStatus
+import docker_response_status as DckStatus
 
 class DockerManager():
 	

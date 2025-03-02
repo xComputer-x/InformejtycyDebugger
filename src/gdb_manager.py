@@ -6,8 +6,8 @@ from uuid import uuid4
 from pprint import pprint
 from typing import Optional
 
-import docker_manager.docker_response_status as DckStatus
-from compiler import Compiler
+import docker_response_status as DckStatus
+from compiler_manager import Compiler
 from docker_manager import DockerManager
 from logger import Logger
 
