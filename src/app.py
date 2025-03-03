@@ -75,7 +75,7 @@ with app.app_context():
 
 	# For debugging
 	# Server use it to indentify debugging processes
-	app.config["debug_processes"]: dict[str: GDBDebugger] = {}
+	app.config["debug_processes"]: dict[str: GDBDebugger] = {} # type: ignore
 
 	logger.info(f"Server is running on {IP}:{PORT}", main)
 
@@ -142,9 +142,6 @@ def handle_debugging(data: dict[str: str]) -> Response:
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 
 	emit(emit_name, data_to_be_sent)
-
-	logger.debug("Stopping docker class", handle_debugging)
-	debugger_class.stop()
 
 '''
 Running the server

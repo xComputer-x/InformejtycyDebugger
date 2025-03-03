@@ -12,3 +12,4 @@ CLEANING_UNUSED_DBG_PROCESSES_TIME: int = 5 # How often should Debugger classes 
 MAX_COMPILATION_ERROR_MESSAGE_LENGTH: int = 20 # How many bytes of error can be displayed
 DEBUGGER_MEMORY_LIMIT_MB: int = 128 # Memory limit for debugging process in megabytes
 DEBUGGER_TIMEOUT: int = 5 # After what time will pexpect timeout
+EXPECT_VALUES_AFTER_GDB_COMMAND: list[str] = ["^done", "^error", "^running", "^connected", "^exit"]

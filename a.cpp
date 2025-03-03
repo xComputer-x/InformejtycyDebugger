@@ -1,14 +1,10 @@
-#include <iostream>
+#include<queue>
 
-// Rekurencyjna struktura szablonowa
-template<int N>
-struct CompileError {
-    static_assert(N < 10, "Zbyt głęboka rekurencja szablonu!");
-    using type = typename CompileError<N + 1>::type;
-};
+int main(){
+    std::queue<int> a;
+    a.push(5);
+    a.push(3);
+    a.push(7);
 
-// Wywołanie rekurencyjne
-int main() {
-    CompileError<0>::type obj;
-    return 0;
+    a.pop();
 }

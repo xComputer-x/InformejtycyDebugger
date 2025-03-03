@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import pexpect
 from uuid import uuid4
@@ -9,7 +10,22 @@ import docker_response_status as DckStatus
 from compiler_manager import Compiler
 from docker_manager import DockerManager
 from logger import Logger
-from server import DEBUGGER_MEMORY_LIMIT_MB
+from server import DEBUGGER_MEMORY_LIMIT_MB, EXPECT_VALUES_AFTER_GDB_COMMAND
+
+
+'''
+
+If vectors and other C++ standard library structures are not printing nicely,
+put this in self.gdb_init_input between "set debuginfod enabled off" and "break main".
+
+"python",
+"import sys",
+"sys.path.insert(0, '/usr/share/gcc/python/')",
+"from libstcxx.v6.printers import register_libstdcxx_printers",
+"register_libstdcxx_printers(None)",
+"end",
+
+'''
 
 class GDBDebugger:
 	'''
@@ -28,12 +44,6 @@ class GDBDebugger:
 
 		self.gdb_init_input = [
 			"set debuginfod enabled off",
-			"python",
-			"import sys",
-			"sys.path.insert(0, '/usr/share/gcc/python/')",
-			"from libstcxx.v6.printers import register_libstdcxx_printers",
-			"register_libstdcxx_printers(None)",
-			"end",
 			"break main",
 			"run"
 		]
@@ -50,9 +60,28 @@ class GDBDebugger:
 		Updates last time, the class was pinged.
 		'''
 		self.last_ping_time = time.time()
+	
+	def send_command(self, command: str) -> tuple[str, str]:
+		'''
+		Executes gdb command.
+		:param command: command, to be executed
+		:return two strings. The first one telling which response
+		was received (member of EXPECT_VALUES_AFTER_GDB_COMMAND
+		constant). The second one telling about output received
+		by pexpect.
+		'''
+		which_response: str = ""
+		try:
+			self.process.sendline(command)
 
-	def pprint_response(self, response: dict) -> None:
-		pprint(response)
+			which_response = EXPECT_VALUES_AFTER_GDB_COMMAND[self.process.expect_exact(EXPECT_VALUES_AFTER_GDB_COMMAND)]
+			
+			self.logger.spam(f"Command {command} was successfully sent to gdb process!", self.send_command)
+
+		except Exception as e:
+			self.logger.alert(f"Couldn't send {command} command to gdb process | {e.__class__.__name__}: {e}", self.send_command)
+
+		return (which_response, self.process.before)
 
 	def run(self, input_: str) -> tuple[int, bytes]:
 		'''
@@ -83,11 +112,15 @@ class GDBDebugger:
 
 		try:
 			self.process.expect_exact("(gdb)")
+			self.logger.spam(self.process.before, self.run)
 			self.logger.debug(f"Process has been correctly started!", self.run)
 		except:
+			self.logger.spam(self.process.before, self.run)
 			self.logger.alert("Starting went wrong...", self.run)
 
-		self.logger.spam(self.process.before, self.run)
+		self.logger.debug(f"Sending initalizing commands", self.run)
+		for command in self.gdb_init_input:
+			self.logger.spam(self.send_command(command)[1], self.run)
 
 		return (0, bytes())
 
@@ -101,13 +134,13 @@ class GDBDebugger:
 			os.remove(os.path.join(self.debug_dir, self.compiled_file_name))
 			self.compiled_file_name = ""
 		
-		if os.path.exists(os.path.join(self.received_dir, self.input_file_name)):
+		if os.path.exists(os.path.join(self.received_dir, self.input_file_name)) and self.input_file_name != "":
 			os.remove(os.path.join(self.received_dir, self.input_file_name))
 
-		if os.path.exists(os.path.join(self.debug_dir, self.stdin_input_file)):
+		if os.path.exists(os.path.join(self.debug_dir, self.stdin_input_file)) and self.stdin_input_file != "":
 			os.remove(os.path.join(self.debug_dir, self.stdin_input_file))
 
+		self.docker_manager.stop_container(self.container_name)
 		if self.process:
 			self.process.close(force=True)
 			self.process = None
-		self.docker_manager.stop_container(self.container_name)

@@ -36,7 +36,7 @@ class Compiler:
 		self.input_dir = input_dir
 		self.debug_output_dir = debug_output_dir
 
-	def compile(self, filename: str,) -> tuple[str, bytes]:
+	def compile(self, filename: str) -> tuple[str, bytes]:
 		"""
 		Compile a file
 		:param filename: Name of the file to compile (must sit in the input directory)
@@ -44,12 +44,12 @@ class Compiler:
 		"""
 		target_filename = filename[:-3] + 'out'	 # file.cpp -> file.out
 
-		command = [self.compiler, join(self.input_dir, filename), "-O2", "--std=c++23", "-g", "-o", join(self.debug_output_dir, target_filename)]
+		command = [self.compiler, join(self.input_dir, filename), "-O2", "--std=c++23", "-Wshadow", "-Werror", "-g", "-o", join(self.debug_output_dir, target_filename)]
 
 		stdout = bytes()
 
 		try:
-			stdout = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE).stderr
+			stdout = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stderr
 			stdout = shorten_bytes(stdout)
 		except FileNotFoundError:
 			self.logger.alert(f"{self.compiler} compiler is not installed!", self.compile)
