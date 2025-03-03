@@ -1,3 +1,4 @@
+import os
 import subprocess
 from os.path import join
 
@@ -44,7 +45,7 @@ class Compiler:
 		"""
 		target_filename = filename[:-3] + 'out'	 # file.cpp -> file.out
 
-		command = [self.compiler, join(self.input_dir, filename), "-O2", "--std=c++23", "-Wshadow", "-Werror", "-g", "-o", join(self.debug_output_dir, target_filename)]
+		command = [self.compiler, join(self.input_dir, filename), "-Wshadow", "-Werror", "-g", "-O0", "-o", os.path.abspath(join(self.debug_output_dir, target_filename))]
 
 		stdout = bytes()
 

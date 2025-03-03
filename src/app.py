@@ -7,7 +7,7 @@ from flask import Flask, request, Response
 from flask_socketio import SocketIO, emit
 from uuid import uuid4
 
-from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME
+from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, STARTED_DEBUGGING_RESPONSE_TEMPLATE
 from compiler_manager import Compiler
 from gdb_manager import GDBDebugger
 from logger import Logger
@@ -48,6 +48,9 @@ def clean_unused_debug_processes() -> None:
 		eventlet.sleep(CLEANING_UNUSED_DBG_PROCESSES_TIME)
 		with debug_processes_lock:
 			for auth in dict(app.config["debug_processes"]): # dict(...) to make copy
+				if not app.config["debug_processes"][auth].process:
+					app.config["debug_processes"][auth].ping()
+
 				if time.time() - app.config["debug_processes"][auth].last_ping_time >= RECEIVE_DEBUG_PING_TIME:
 					logger.spam(f"GDBDebugger with '{auth}' wasn't pinged for {RECEIVE_DEBUG_PING_TIME} seconds. Cleaning...", clean_unused_debug_processes)
 					app.config["debug_processes"][auth].stop()
@@ -125,7 +128,7 @@ def handle_debugging(data: dict[str: str]) -> Response:
 	run_exit_code, stdout = debugger_class.run(data["input"])
 
 	emit_name = "started_debugging"
-	data_to_be_sent: dict[str: str | bool] = dict({"authorization": "", "compilation_error": False, "compilation_error_details": ""})
+	data_to_be_sent: dict[str: str | bool] = dict(STARTED_DEBUGGING_RESPONSE_TEMPLATE)
 
 	if run_exit_code == -1:
 		data_to_be_sent["compilation_error"] = True

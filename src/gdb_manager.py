@@ -1,10 +1,10 @@
 import os
-import sys
 import time
 import pexpect
 from uuid import uuid4
 from pprint import pprint
 from typing import Optional
+from pygdbmi.gdbmiparser import parse_response
 
 import docker_response_status as DckStatus
 from compiler_manager import Compiler
@@ -43,9 +43,10 @@ class GDBDebugger:
 		self.last_ping_time: int = time.time() # time in seconds from the last time client pinged this class
 
 		self.gdb_init_input = [
-			"set debuginfod enabled off",
-			"break main",
-			"run"
+			"set substitute-path /home/adam/repos/InformejtycyDebugger/./received /app",
+			"break *main",
+			"run",
+			"frame"
 		]
 
 		self.compiled_file_name = ""
@@ -99,7 +100,7 @@ class GDBDebugger:
 		self.logger.debug("Building docker container", self.run)
 
 		self.compiled_file_name = output_file_name
-		status, stdout = self.docker_manager.build_for_debugger(self.compiled_file_name)
+		status, stdout = self.docker_manager.build_for_debugger(self.compiled_file_name, self.input_file_name)
 
 		self.logger.debug(f"docker build debugger: {status}", self.run)
 		self.logger.spam(f"{stdout}", self.run)
