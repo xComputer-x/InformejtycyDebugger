@@ -11,21 +11,6 @@ from docker_manager import DockerManager
 from logger import Logger
 from server import DEBUG_DIR, DEBUGGER_MEMORY_LIMIT_MB, EXPECT_VALUES_AFTER_GDB_COMMAND
 
-
-'''
-
-If vectors and other C++ standard library structures are not printing nicely,
-put this in self.gdb_init_input between "set debuginfod enabled off" and "break main".
-
-"python",
-"import sys",
-"sys.path.insert(0, '/usr/share/gcc/python/')",
-"from libstcxx.v6.printers import register_libstdcxx_printers",
-"register_libstdcxx_printers(None)",
-"end",
-
-'''
-
 class GDBDebugger:
 	'''
 	Class for managing debug process (gdb).
@@ -92,6 +77,7 @@ class GDBDebugger:
 		self.logger.info(f"Current function's parameters types: {current_function_params_types}", self.get_server_output_data)
 		self.logger.info(f"Current line: {current_line}", self.get_server_output_data)
 
+	# Work in progress...
 	def get_local_arguments(self) -> list[dict[str: Any]]:
 		args_output = self.send_command("info args")[1]
 		local_args = []
