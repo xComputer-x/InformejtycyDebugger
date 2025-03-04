@@ -43,6 +43,9 @@ class GDBDebugger:
 
 		self.gdb_init_input = [
 			"set substitute-path /home/adam/repos/InformejtycyDebugger/./received /app",
+			"python import sys; sys.path.insert(0, '/usr/share/gcc-13/python')",
+			"python from libstdcxx.v6.printers import register_libstdcxx_printers",
+			"python register_libstdcxx_printers(gdb.current_objfile())",
 			"break *main",
 			"run",
 		]
@@ -80,12 +83,52 @@ class GDBDebugger:
 		current_function_params_types = whatis_output[0]["payload"].split(' ')[3][:-1]
 		current_function_params_types = current_function_params_types if current_function_params_types != "(void)" else "()"
 
-		self.logger.spam(f"Global variables: {self.get_global_variables()}", self.get_server_output_data)
+		self.logger.info(f"Global variables: {self.get_global_variables()}", self.get_server_output_data)
+		self.logger.info(f"Local variables: {self.get_local_variables()}", self.get_server_output_data)
+		self.logger.info(f"Local arguments: {self.get_local_arguments()}", self.get_local_arguments)
 
 		self.logger.info(f"Current function: {current_function}", self.get_server_output_data)
 		self.logger.info(f"Current function's return type: {current_function_return_type}", self.get_server_output_data)
 		self.logger.info(f"Current function's parameters types: {current_function_params_types}", self.get_server_output_data)
 		self.logger.info(f"Current line: {current_line}", self.get_server_output_data)
+
+	def get_local_arguments(self) -> list[dict[str: Any]]:
+		args_output = self.send_command("info args")[1]
+		local_args = []
+
+		if args_output[0]["payload"] == "No arguments.\n":
+			return local_args
+		
+		return local_args
+
+	def get_local_variables(self) -> list[dict[str: Any]]:
+		local_output = self.send_command("info locals")[1]
+		local_variables = []
+
+		if local_output[0]["payload"] == "No locals.\n":
+			return local_variables
+
+		for local in local_output:
+			try:
+				variable_name = local["payload"].split('=')[0][:-1]
+
+				p_output = self.send_command(f"p {variable_name}")[1]
+				variable_value = p_output[0]["payload"].split('=')[-1][1:-1]
+
+				whatis_output = self.send_command(f"whatis {variable_name}")[1]
+				variale_type = whatis_output[0]["payload"][:-1].split(' ')[2]
+
+				try:
+					amount_of_values = [int(element) for element in whatis_output[0]["payload"][:-1].split(' ')[3].replace('[', ' ').replace(']', '').strip().split(' ')]
+				except:
+					amount_of_values = [1]
+				local_variables.append({"variable_supported": True, "variable_type": variale_type, "variable_name": variable_name, "variable_value": variable_value, "amount_of_values": amount_of_values})
+
+			except Exception as e:
+				self.logger.warn(f"Local variable {local} couln't be displayed... | {e.__class__.__name__}: {e}", self.get_local_variables)
+				local_variables.append({"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""})
+
+		return local_variables
 
 	def get_global_variables(self) -> list[dict[str: Any]]:
 		variables_output = self.send_command("info variables")[1]
@@ -102,7 +145,7 @@ class GDBDebugger:
 					if variables_output[k]["payload"].startswith(DEBUG_DIR):
 						k+=1
 						continue
-					global_variables.append(self.format_a_variable(variables_output[k]["payload"]))
+					global_variables.append(self.format_a_variable(variables_output[k]["payload"].split('\t')[1][:-1]))
 					k+=1
 				break
 
@@ -110,22 +153,22 @@ class GDBDebugger:
 
 	def format_a_variable(self, gdb_output) -> dict[str: Any]:
 		try:
-			variable_match = re.match(r"(.+?)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*((?:\[[^\]]*\])*)$", re.sub(r"\s*\*", "* ", gdb_output[:-2].split('\t')[1]))
+			variable_match = re.match(r"(.+?)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*((?:\[[^\]]*\])*)$", re.sub(r"\s*\*", "* ", gdb_output[:-1]))
 			
 			variable_type = variable_match.group(1)
 			variable_name = variable_match.group(2)
 
 			try:
-				amount_of_values = [int(match.group(1)) for match in re.finditer(r'\[(\d+)\]', variable_match.group(3))] or 1
+				amount_of_values = [int(match.group(1)) for match in re.finditer(r'\[(\d+)\]', variable_match.group(3))] or [1]
 			except:
-				amount_of_values = 1
+				amount_of_values = [1]
 			
 			p_output = self.send_command(f"p {variable_name}")[1]
-			variable_value = p_output[0]["payload"].split('=')[1][1:-1]
+			variable_value = p_output[0]["payload"].split('=')[-1][1:-1]
 
 			return {"variable_supported": True, "variable_type": variable_type, "variable_name": variable_name, "variable_value": variable_value, "amount_of_values": amount_of_values}
 		except Exception as e:
-			self.logger.warn(f"Variable {gdb_output} couln't be displayed... | {e.__class__.__name__}: {e}", self.format_a_variable)
+			self.logger.warn(f"Global variable {gdb_output} couln't be displayed... | {e.__class__.__name__}: {e}", self.format_a_variable)
 		
 		return {"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""}
 

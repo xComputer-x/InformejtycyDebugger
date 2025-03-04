@@ -45,7 +45,7 @@ class Compiler:
 		"""
 		target_filename = filename[:-3] + 'out'	 # file.cpp -> file.out
 
-		command = [self.compiler, join(self.input_dir, filename), "-Wshadow", "-Werror", "-g", "-O0", "-o", os.path.abspath(join(self.debug_output_dir, target_filename))]
+		command = [self.compiler, "-ggdb3", "-O0", join(self.input_dir, filename), "-Wshadow", "-Werror", "-fno-eliminate-unused-debug-symbols", "-fno-eliminate-unused-debug-types", "-fvar-tracking-assignments", "-fno-omit-frame-pointer", "-fno-inline", "-o", os.path.abspath(join(self.debug_output_dir, target_filename))]
 
 		stdout = bytes()
 

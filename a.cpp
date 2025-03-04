@@ -11,11 +11,10 @@ void c(void* d)
 	return;
 }
 
-int a, b;
-
 int main()
 {
     int a, b;
+	c(&a);
     cin >> a >> b;
     cout << a / b << endl;
 }
