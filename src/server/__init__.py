@@ -15,10 +15,13 @@ DEBUGGER_MEMORY_LIMIT_MB: int = 128 # Memory limit for debugging process in mega
 DEBUGGER_TIMEOUT: int = 5 # After what time will pexpect timeout
 EXPECT_VALUES_AFTER_GDB_COMMAND: list[str] = ["^done", "^error", "^running", "^connected", "^exit"]
 
-STARTED_DEBUGGING_RESPONSE_TEMPLATE: dict[str: Any] = {
-    "authorization": "", "compilation_error": False, "compilation_error_details": "",
-    "global_variables": {}, "function": "", "function_type": "", "line": "", "local_variables": {}
-}
-DEBUG_ACTION_RESPONSE_TEMPLATE: dict[str: Any] = {
-    "is_running": True, "function": "", "function_type": "", "line": "", "local_variables": {}
+DEBUGDATA_TEMPLATE: dict[str: Any] = {
+    "is_running": True,
+    "function": "",
+    "function_return_type": "",
+    "function_parameters_types": "()",
+    "line": 0,
+    "global_variables": [],
+    "local_variables": [],
+    "arguments": []
 }

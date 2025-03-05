@@ -6,20 +6,15 @@ const socket = io({
 });
 
 const ping_back_after = 3000; // Delay before ping after server's PONG reponse
-var authorization = "";
 
 // Enable debugging gui and disable pre-debugging gui
 async function turn_gui_into_debugging() {
-    document.getElementById("debugCode").readOnly = true;
-    document.getElementById("debugStart").disabled = true;
 
     await document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = false);
 }
 
 // Disable debugging gui and enable pre-debugging gui
 async function turn_gui_back_from_debugging() {
-    document.getElementById("debugCode").readOnly = false;
-    document.getElementById("debugStart").disabled = false;
 
     await document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = true);
 }
@@ -28,6 +23,26 @@ async function turn_gui_back_from_debugging() {
 function sleep(time_in_miliseconds) {
     return new Promise((resolve) => setTimeout(resolve, time_in_miliseconds));
 }
+
+function highlightLine(lineNumber) {
+    const elements = document.querySelectorAll('.linemark');
+
+    // Loop through each element
+    elements.forEach(element => {
+        // Replace the element with its text content
+        element.replaceWith(element.textContent);
+    });
+
+    const preElement = document.getElementById("debugCode");
+    if (!preElement) return;
+    
+    const lines = preElement.innerHTML.split('\n');
+    if (lineNumber < 1 || lineNumber > lines.length) return;
+    
+    lines[lineNumber - 1] = `<mark class="linemark">${lines[lineNumber - 1]}</mark>`;
+    preElement.innerHTML = lines.join('\n');
+}
+
 
 // Connection debuginfo
 socket.on("connect", () => {
@@ -51,6 +66,7 @@ socket.on("started_debugging", (data) => {
         document.getElementById("statusDetails").textContent = "";
 
         auth = data.authorization;
+        authorization = data.authorization;
         console.log("Started debugging, auth:", auth);
 
         socket.emit("ping", {authorization: auth});
@@ -67,9 +83,21 @@ socket.on("pong", async (data) => {
     socket.emit("ping", {authorization: auth});
 })
 
+// After some action receive debugging information
+socket.on("debug_data", async (data) => {
+    console.log("Server responded! Status:", data.status);
+    console.log(data);
+    highlightLine(data.line)
+})
+
 // Start of debugging
 document.getElementById("debugStart").addEventListener("click", function start_debugging() {
-    socket.emit("start_debugging", {code: document.getElementById("debugCode").value, input: ""});
+    socket.emit("start_debugging", {code: document.querySelector('#debugCode').innerText, input: ""});
+})
+
+// Listen for stepping
+document.getElementById("krokDoPrzodu").addEventListener("click", function step_forward() {
+    socket.emit("step", {authorization: authorization});
 })
 
 turn_gui_back_from_debugging()

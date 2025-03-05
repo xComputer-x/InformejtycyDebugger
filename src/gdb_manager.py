@@ -9,8 +9,19 @@ import docker_response_status as DckStatus
 from compiler_manager import Compiler
 from docker_manager import DockerManager
 from logger import Logger
-from server import DEBUG_DIR, DEBUGGER_MEMORY_LIMIT_MB, EXPECT_VALUES_AFTER_GDB_COMMAND
+from server import DEBUG_DIR, DEBUGGER_MEMORY_LIMIT_MB, EXPECT_VALUES_AFTER_GDB_COMMAND, DEBUGDATA_TEMPLATE
+'''
+#include<queue>
+using namespace std;
 
+priority_queue<int> a;
+
+int main()
+{
+a.push(3);
+
+}
+'''
 class GDBDebugger:
 	'''
 	Class for managing debug process (gdb).
@@ -31,6 +42,9 @@ class GDBDebugger:
 			"python import sys; sys.path.insert(0, '/usr/share/gcc-13/python')",
 			"python from libstdcxx.v6.printers import register_libstdcxx_printers",
 			"python register_libstdcxx_printers(gdb.current_objfile())",
+			f"skip -gfi /usr/include/c++/14/*",
+			f"skip -gfi /usr/include/c++/14/bits/*",
+			f"skip -gfi /usr/include/",
 			"break *main",
 			"run",
 		]
@@ -68,14 +82,29 @@ class GDBDebugger:
 		current_function_params_types = whatis_output[0]["payload"].split(' ')[3][:-1]
 		current_function_params_types = current_function_params_types if current_function_params_types != "(void)" else "()"
 
-		self.logger.info(f"Global variables: {self.get_global_variables()}", self.get_server_output_data)
-		self.logger.info(f"Local variables: {self.get_local_variables()}", self.get_server_output_data)
-		self.logger.info(f"Local arguments: {self.get_local_arguments()}", self.get_local_arguments)
+		global_variables = self.get_global_variables()
+		local_variables = self.get_local_variables()
+		local_arguments = self.get_local_arguments()
+
+		self.logger.info(f"Global variables: {global_variables}", self.get_server_output_data)
+		self.logger.info(f"Local variables: {local_variables}", self.get_server_output_data)
+		self.logger.info(f"Local arguments: {local_arguments}", self.get_local_arguments)
 
 		self.logger.info(f"Current function: {current_function}", self.get_server_output_data)
 		self.logger.info(f"Current function's return type: {current_function_return_type}", self.get_server_output_data)
 		self.logger.info(f"Current function's parameters types: {current_function_params_types}", self.get_server_output_data)
 		self.logger.info(f"Current line: {current_line}", self.get_server_output_data)
+
+		return {
+			"is_running": True,
+			"function": current_function,
+			"function_return_type": current_function_return_type,
+			"function_parameters_types": current_function_params_types,
+			"line": current_line,
+			"global_variables": global_variables,
+			"local_variables": local_variables,
+			"arguments": local_arguments
+		}
 
 	# Work in progress...
 	def get_local_arguments(self) -> list[dict[str: Any]]:
@@ -158,7 +187,20 @@ class GDBDebugger:
 		
 		return {"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""}
 
-	def send_command(self, command: str) -> tuple[str, list[dict[str: Any]]]:
+	def step(self) -> bool:
+		self.send_command("step")
+		program_output = self.send_command("info program")[1]
+		
+		if program_output[0]["payload"] == "[Inferior 1 (process 14) exited normally]\n":
+			out = dict(DEBUGDATA_TEMPLATE)
+			out["is_running"] = False
+			return out
+
+		return_value = self.get_server_output_data()
+		return_value["is_running"] = True
+		return return_value
+
+	def send_command(self, command: str, whole_output: bool = False) -> tuple[str, list[dict[str: Any]]]:
 		'''
 		Executes gdb command.
 		:param command: command, to be executed
@@ -178,7 +220,7 @@ class GDBDebugger:
 		except Exception as e:
 			self.logger.alert(f"Couldn't send {command} command to gdb process | {e.__class__.__name__}: {e}", self.send_command)
 
-		return (which_response, self.get_formatted_gdb_output())
+		return (which_response, self.get_formatted_gdb_output(whole_output))
 
 	def run(self, input_: str) -> tuple[int, bytes]:
 		'''
@@ -218,8 +260,6 @@ class GDBDebugger:
 		self.logger.debug(f"Sending initalizing commands", self.run)
 		for command in self.gdb_init_input:
 			self.logger.spam(self.send_command(command)[1], self.run)
-		
-		self.get_server_output_data()
 
 		return (0, bytes())
 

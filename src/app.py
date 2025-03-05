@@ -7,7 +7,7 @@ from flask import Flask, request, Response
 from flask_socketio import SocketIO, emit
 from uuid import uuid4
 
-from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, STARTED_DEBUGGING_RESPONSE_TEMPLATE
+from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DEBUGDATA_TEMPLATE
 from compiler_manager import Compiler
 from gdb_manager import GDBDebugger
 from logger import Logger
@@ -110,10 +110,13 @@ def handle_debug_ping(data: dict[str: str]) -> None:
 			emit("pong", {"status": "ok"})
 
 			logger.spam(f"Emitted \"pong\" to {request.sid}", handle_debug_ping)
+		else:
+			emit("pong", {"status": "invalid authorization"})
+			logger.spam(f"Emitted \"pong\" (with invalid authorization) to {request.sid}", handle_debug_ping)
 
 # Captures websocket debugging request.
 @socketio.on('start_debugging')
-def handle_debugging(data: dict[str: str]) -> Response:
+def handle_debugging(data: dict[str: str]) -> None:
 	logger.debug(f"Client requested debugging: {request.sid}", handle_debugging)
 	logger.debug(f"Data: {data}", handle_debugging)
 
@@ -128,7 +131,7 @@ def handle_debugging(data: dict[str: str]) -> Response:
 	run_exit_code, stdout = debugger_class.run(data["input"])
 
 	emit_name = "started_debugging"
-	data_to_be_sent: dict[str: str | bool] = dict(STARTED_DEBUGGING_RESPONSE_TEMPLATE)
+	data_to_be_sent: dict[str: str | bool] = dict(DEBUGDATA_TEMPLATE)
 
 	if run_exit_code == -1:
 		data_to_be_sent["compilation_error"] = True
@@ -145,6 +148,28 @@ def handle_debugging(data: dict[str: str]) -> Response:
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 
 	emit(emit_name, data_to_be_sent)
+
+	debug_data = debugger_class.get_server_output_data()
+	debug_data["status"] = "ok"
+	emit("debug_data", debug_data)
+
+@socketio.on("step")
+def handle_stepping(data: dict[str: str]) -> None:
+	if not "authorization" in data:
+		return
+
+	authorization = data["authorization"]
+	logger.spam(f"Client requested stepping with authorization: {authorization}", handle_stepping)
+
+	with debug_processes_lock:
+		if authorization in app.config["debug_processes"]:
+			output = app.config["debug_processes"][authorization].step()
+			output["status"] = "ok"
+			emit("debug_data", output)
+			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
+		else:
+			emit("debug_data", {"status": "invalid authorization"})
+			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
 
 '''
 Running the server

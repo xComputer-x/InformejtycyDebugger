@@ -3,3 +3,13 @@
     padding: 10px;
     box-sizing: border-box;
 }
+
+pre {
+    font-family:sans;
+    width: 400px;
+  }
+  
+mark {
+    background:rgb(251, 255, 0);
+    display: block;
+  }
