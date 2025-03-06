@@ -48,14 +48,26 @@ def clean_unused_debug_processes() -> None:
 		eventlet.sleep(CLEANING_UNUSED_DBG_PROCESSES_TIME)
 		with debug_processes_lock:
 			for auth in dict(app.config["debug_processes"]): # dict(...) to make copy
-				if not app.config["debug_processes"][auth].process:
+				if not app.config["debug_processes"][auth].process: # when debug process container is still building
 					app.config["debug_processes"][auth].ping()
 
 				if time.time() - app.config["debug_processes"][auth].last_ping_time >= RECEIVE_DEBUG_PING_TIME:
 					logger.spam(f"GDBDebugger with '{auth}' wasn't pinged for {RECEIVE_DEBUG_PING_TIME} seconds. Cleaning...", clean_unused_debug_processes)
+
 					app.config["debug_processes"][auth].stop()
-					app.config["debug_processes"].pop(auth)
+					del app.config["debug_processes"][auth]
+					
 					logger.spam(f"Cleaned successfully!", clean_unused_debug_processes)
+
+def check_if_process_alive(authorization: str) -> bool:
+	if not authorization in app.config["debug_processes"]:
+		return False
+
+	if not app.config["debug_processes"][authorization].process:
+		del app.config["debug_processes"][authorization]
+		return False
+	
+	return True
 
 '''
 To be executed, after the server has started
@@ -105,14 +117,14 @@ def handle_debug_ping(data: dict[str: str]) -> None:
 	logger.spam(f"Client pinged debugger with authorization: {authorization}", handle_debug_ping)
 
 	with debug_processes_lock:
-		if authorization in app.config["debug_processes"]:
+		if not check_if_process_alive(authorization):
+			emit("pong", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"pong\" (with invalid authorization) to {request.sid}", handle_debug_ping)
+		else:
 			app.config["debug_processes"][authorization].ping()
 			emit("pong", {"status": "ok"})
 
 			logger.spam(f"Emitted \"pong\" to {request.sid}", handle_debug_ping)
-		else:
-			emit("pong", {"status": "invalid authorization"})
-			logger.spam(f"Emitted \"pong\" (with invalid authorization) to {request.sid}", handle_debug_ping)
 
 # Captures websocket debugging request.
 @socketio.on('start_debugging')
@@ -162,14 +174,14 @@ def handle_stepping(data: dict[str: str]) -> None:
 	logger.spam(f"Client requested stepping with authorization: {authorization}", handle_stepping)
 
 	with debug_processes_lock:
-		if authorization in app.config["debug_processes"]:
+		if not check_if_process_alive(authorization):
+			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
+		else:
 			output = app.config["debug_processes"][authorization].step()
 			output["status"] = "ok"
 			emit("debug_data", output)
 			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
-		else:
-			emit("debug_data", {"status": "invalid authorization"})
-			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
 
 '''
 Running the server

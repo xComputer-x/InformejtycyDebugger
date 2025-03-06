@@ -38,13 +38,12 @@ class GDBDebugger:
 		self.last_ping_time: int = time.time() # time in seconds from the last time client pinged this class
 
 		self.gdb_init_input = [
-			"set substitute-path /home/adam/repos/InformejtycyDebugger/./received /app",
 			"python import sys; sys.path.insert(0, '/usr/share/gcc-13/python')",
 			"python from libstdcxx.v6.printers import register_libstdcxx_printers",
 			"python register_libstdcxx_printers(gdb.current_objfile())",
-			f"skip -gfi /usr/include/c++/14/*",
-			f"skip -gfi /usr/include/c++/14/bits/*",
-			f"skip -gfi /usr/include/",
+			"skip -gfi /usr/include/*",
+			"skip -gfi /usr/include/c++/14/*",
+			"skip -gfi /usr/include/c++/14/bits/*",
 			"break *main",
 			"run",
 		]
@@ -73,6 +72,8 @@ class GDBDebugger:
 		return outputs
 	
 	def get_server_output_data(self) -> dict[str: Any]:
+		
+
 		frame_output = self.send_command("frame")[1][-2:]
 		current_function = frame_output[0]["payload"].split(' ')[2]
 		current_line = int(frame_output[1]["payload"].split('\t')[0]) 
@@ -194,6 +195,7 @@ class GDBDebugger:
 		if program_output[0]["payload"] == "[Inferior 1 (process 14) exited normally]\n":
 			out = dict(DEBUGDATA_TEMPLATE)
 			out["is_running"] = False
+			self.stop()
 			return out
 
 		return_value = self.get_server_output_data()
