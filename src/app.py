@@ -21,7 +21,7 @@ CORS(app)
 # To nicely display messages
 sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
 sys.stderr.reconfigure(encoding='utf-8', line_buffering=True)
-logger = Logger(display_logs=True)
+logger = Logger(display_logs=True, display_layer=1)
 
 # Make sure received directory exists
 os.makedirs(RECEIVED_DIR, exist_ok=True)
@@ -48,10 +48,12 @@ def clean_unused_debug_processes() -> None:
 		eventlet.sleep(CLEANING_UNUSED_DBG_PROCESSES_TIME)
 		with debug_processes_lock:
 			for auth in dict(app.config["debug_processes"]): # dict(...) to make copy
-				if not app.config["debug_processes"][auth].process: # when debug process container is still building
+				if not app.config["debug_processes"][auth].has_been_run: # when debug process container is still building
 					app.config["debug_processes"][auth].ping()
 
-				if time.time() - app.config["debug_processes"][auth].last_ping_time >= RECEIVE_DEBUG_PING_TIME:
+				elif (time.time() - app.config["debug_processes"][auth].last_ping_time >= RECEIVE_DEBUG_PING_TIME	# Not pinged for long enough
+						or not app.config["debug_processes"][auth].process											# Debug class was stopped, but not cleaned
+						or not app.config["debug_processes"][auth].process.isalive()):								# Process was stopped, but debug class was not stopped
 					logger.spam(f"GDBDebugger with '{auth}' wasn't pinged for {RECEIVE_DEBUG_PING_TIME} seconds. Cleaning...", clean_unused_debug_processes)
 
 					app.config["debug_processes"][auth].stop()
@@ -125,28 +127,27 @@ def handle_debugging(data: dict[str: str]) -> None:
 
 	run_exit_code, stdout = debugger_class.run(data["input"])
 
-	emit_name = "started_debugging"
 	data_to_be_sent: dict[str: str | bool] = dict(DEBUGDATA_TEMPLATE)
 
 	if run_exit_code == -1:
 		data_to_be_sent["compilation_error"] = True
 		data_to_be_sent["compilation_error_details"] = stdout.decode("utf-8")
+		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" (with compilation_error) to {request.sid}", handle_debugging)
 
 	elif run_exit_code == -2:
-		emit_name = "stopped_debugging"
 		data_to_be_sent = {}
+		emit("stopped_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"stopped_debugging\" to {request.sid}", handle_debugging)
 
 	else:
 		data_to_be_sent["authorization"] = auth
+		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 
-	emit(emit_name, data_to_be_sent)
-
-	debug_data = debugger_class.get_server_output_data()
-	debug_data["status"] = "ok"
-	emit("debug_data", debug_data)
+		debug_data = debugger_class.get_server_output_data()
+		debug_data["status"] = "ok"
+		emit("debug_data", debug_data)
 
 # Captures debug class ping. Used to keep debug class alive
 @socketio.on('ping')
@@ -204,11 +205,10 @@ def handle_stopping(data: dict[str: str]) -> None:
 			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
 			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
 		else:
-			output = app.config["debug_processes"][authorization].stop()
+			app.config["debug_processes"][authorization].stop()
 			del app.config["debug_processes"][authorization]
-			output["status"] = "ok"
 
-			emit("debug_data", output)
+			emit("debug_data", {"status": "ok"})
 			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
 
 '''

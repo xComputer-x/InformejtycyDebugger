@@ -19,7 +19,7 @@ class DockerManager():
 	For debugger
 	'''
 
-	def build_for_debugger(self, executable_file_name: str, source_file_name: str) -> tuple[str, bytes]:
+	def build_for_debugger(self, executable_file_name: str, source_file_name: str, stdin_file_name: str) -> tuple[str, bytes]:
 		try:
 			stdout = subprocess.check_output(["cp", f"{self.gdb_printers_dir}/printers.py", self.debug_dir])
 		except:
@@ -38,10 +38,13 @@ class DockerManager():
 			f"COPY ./printers.py /usr/share/gcc/python/libstdcxx/v6/printers.py", 					# Copying printers.py
 			f"COPY {executable_file_name} /app/a.out",												# Copying executable .out
 			f"COPY {source_file_name} /app/received/{source_file_name}", 							# Copying source .cpp
+			f"COPY {stdin_file_name} /app/{stdin_file_name}",
+			f"WORKDIR app",
 			f"RUN chown appuser:appgroup /app/a.out",												# User is owner of this executable
+			f"RUN chown appuser:appgroup /app/received/{source_file_name}",							# User is owner of source code
+			f"RUN chown appuser:appgroup /app/{stdin_file_name}",									# User is owner of stdin file
 			f"RUN chmod 700 /app/a.out",															# Permissions
 			f"USER appuser",																		# Set current user to created user
-			f"WORKDIR app"
 		])
 
 		status = ""
@@ -60,15 +63,10 @@ class DockerManager():
 
 		return (status, stdout)
 
-	def run_for_debugger(self, input_: str, memory_limit_MB: int) -> tuple[pexpect.spawnu, str, str]:
-		container_name = str(uuid4())
-
-		with open(f"{self.debug_dir}/input_{container_name}.txt", "w") as f:
-			f.write(input_)
-
+	def run_for_debugger(self, container_name: str, memory_limit_MB: int) -> pexpect.spawnu:
 		process = pexpect.spawnu("docker", ["run", "--rm", "--cap-drop=ALL", "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined", "--memory-swap=256m", "--read-only", "-v", "/tmp/tmp", f"--cgroup-parent={CGROUP_NAME}", f"--cpus={DEBUGGER_CPU_LIMIT}", "--network=none", "--memory", f"{memory_limit_MB}m", "--name", container_name, "-i", self.debug_image_name, "gdb", "./a.out", "--interpreter=mi3", "--quiet"], timeout=DEBUGGER_TIMEOUT)
 
-		return (process, container_name, f"input_{container_name}.txt")
+		return process
 
 	'''
 	Additional methods.

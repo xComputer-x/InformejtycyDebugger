@@ -4,24 +4,14 @@ import time
 import pexpect
 from typing import Optional, Any
 from pygdbmi.gdbmiparser import parse_response
+from uuid import uuid4
 
 import docker_response_status as DckStatus
 from compiler_manager import Compiler
 from docker_manager import DockerManager
 from logger import Logger
 from server import DEBUG_DIR, DEBUGGER_MEMORY_LIMIT_MB, EXPECT_VALUES_AFTER_GDB_COMMAND, DEBUGDATA_TEMPLATE
-'''
-#include<queue>
-using namespace std;
 
-priority_queue<int> a;
-
-int main()
-{
-a.push(3);
-
-}
-'''
 class GDBDebugger:
 	'''
 	Class for managing debug process (gdb).
@@ -54,6 +44,7 @@ class GDBDebugger:
 		self.stdin_input_file: str = ""
 
 		self.docker_manager = DockerManager(self.debug_dir, self.gdb_printers_dir)
+		self.has_been_run: bool = False
 
 	def ping(self) -> None:
 		'''
@@ -132,7 +123,9 @@ class GDBDebugger:
 				variable_value = p_output[0]["payload"].split('=')[-1][1:-1]
 
 				whatis_output = self.send_command(f"whatis {variable_name}")[1]
-				variale_type = whatis_output[0]["payload"][:-1].split(' ')[2]
+
+				whatis_match = re.match(r"[a-zA-Z 0-9]+=(.*)", whatis_output[0]["payload"])
+				variale_type = whatis_match.group(1)[1:]
 
 				try:
 					amount_of_values = [int(element) for element in whatis_output[0]["payload"][:-1].split(' ')[3].replace('[', ' ').replace(']', '').strip().split(' ')]
@@ -190,11 +183,26 @@ class GDBDebugger:
 
 	def step(self) -> bool:
 		self.send_command("step")
-		program_output = self.send_command("info program")[1]
+		status, program_output = self.send_command("info program")
+
+		if status == "timeout":
+			out = dict(DEBUGDATA_TEMPLATE)
+			out["is_running"] = False
+			out["timeout"] = True
+			self.stop()
+			return out
 		
 		if program_output[0]["payload"] == "[Inferior 1 (process 14) exited normally]\n":
 			out = dict(DEBUGDATA_TEMPLATE)
 			out["is_running"] = False
+			self.stop()
+			return out
+		
+		if len(program_output) > 1 and program_output[1]["payload"].startswith(" received signal SIG"):
+			out = dict(DEBUGDATA_TEMPLATE)
+			out["is_running"] = False
+			out["runtime_error"] = True
+			out["runtime_error_details"] = program_output[1]["payload"][len(" received signal "):-1]
 			self.stop()
 			return out
 
@@ -213,11 +221,18 @@ class GDBDebugger:
 		'''
 		which_response: str = ""
 		try:
+			if command == "run" and self.stdin_input_file:
+				command = f"run < {self.stdin_input_file}"
+
 			self.process.sendline(command)
 
 			which_response = EXPECT_VALUES_AFTER_GDB_COMMAND[self.process.expect_exact(EXPECT_VALUES_AFTER_GDB_COMMAND)]
 			
 			self.logger.spam(f"Command {command} was successfully sent to gdb process!", self.send_command)
+
+		except pexpect.TIMEOUT:
+			self.logger.warn(f"Timeout from command {command}", self.send_command)
+			return ("timeout", {})
 
 		except Exception as e:
 			self.logger.alert(f"Couldn't send {command} command to gdb process | {e.__class__.__name__}: {e}", self.send_command)
@@ -235,21 +250,28 @@ class GDBDebugger:
 		output_file_name, stdout = self.compiler.compile(self.input_file_name)
 
 		if not os.path.exists(os.path.join(self.debug_dir, output_file_name)):
+			self.has_been_run = True # If it fails, it should be cleaned
 			return (-1, stdout)
+
+		self.container_name = str(uuid4())
+		with open(f"{self.debug_dir}/input_{self.container_name}.txt", "w") as f:
+			f.write(input_)
+		self.stdin_input_file = f"input_{self.container_name}.txt"
 
 		self.logger.debug("Building docker container", self.run)
 
 		self.compiled_file_name = output_file_name
-		status, stdout = self.docker_manager.build_for_debugger(self.compiled_file_name, self.input_file_name)
+		status, stdout = self.docker_manager.build_for_debugger(self.compiled_file_name, self.input_file_name, self.stdin_input_file)
 
 		self.logger.debug(f"docker build debugger: {status}", self.run)
 		self.logger.spam(f"{stdout}", self.run)
 
 		if status in [DckStatus.docker_build_error, DckStatus.internal_docker_manager_error]:
+			self.has_been_run = True # If it fails, it should be cleaned
 			self.logger.alert(f"Building error: {status}", self.run)
 			return (-2, stdout)
 
-		self.process, self.container_name, self.stdin_input_file = self.docker_manager.run_for_debugger(input_, DEBUGGER_MEMORY_LIMIT_MB)
+		self.process = self.docker_manager.run_for_debugger(self.container_name, DEBUGGER_MEMORY_LIMIT_MB)
 
 		try:
 			self.process.expect_exact("(gdb)")
@@ -262,6 +284,8 @@ class GDBDebugger:
 		self.logger.debug(f"Sending initalizing commands", self.run)
 		for command in self.gdb_init_input:
 			self.logger.spam(self.send_command(command)[1], self.run)
+		
+		self.has_been_run = True
 
 		return (0, bytes())
 

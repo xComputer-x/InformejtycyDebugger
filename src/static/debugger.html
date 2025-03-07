@@ -4,7 +4,11 @@
 	<title>Demo website - debugger</title>
 
 	<link rel="preload" href="/debugger/style.css" as="style" onload="this.rel='stylesheet'">
+
+	<!-- Socketio -->
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
+
+	<!-- Code mirror -->
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
@@ -13,23 +17,19 @@
 <body>
 	<div id="panelGorny">
 		<button id="zakonczDebugowanie" disabled=>Zakończ debugowanie</button>
-		<button id="krokDoPrzodu" disabled>Wykonaj kolejną linię</button>
-		<button id="krokDoPrzodu" disabled>Wejdź do funkcji</button>
+		<button id="krokDoPrzodu" disabled>Wykonaj krok do przodu</button>
 	</div>
 
 	To jest demo debuggera.
 
 	<textarea id="cppEditor"></textarea>
-	<!-- <pre onPaste="setTimeout(function() {onPaste();}, 0)" id="editable" contenteditable>
-  		<code id="c++" class="language-c++"></code>
-	</pre> -->
-	<!-- <div class="language-c++ editable-code" contenteditable="true" spellcheck="false"></div> -->
-	<!-- <pre contentEditable="true" id="debugCode"><code></code></pre> -->
 
 	<p>Status: <p id="status">oczekiwanie na wysłanie kodu do debugowania</p></p>
 	<pre><code id="statusDetails"></code></pre>
 
 	<button id="debugStart">Start debugging</button>
+
+	<pre><code id="variablesInfo"></code></pre>
 	
 	<script src="/debugger/script.js"></script>
 </body>

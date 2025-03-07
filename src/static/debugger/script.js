@@ -9,6 +9,7 @@ const ping_back_after = 3000; // Delay before ping after server's PONG reponse
 
 var editor;
 var last_highlighted;
+var is_running = false;
 
 // Enable debugging gui and disable pre-debugging gui
 async function turn_gui_into_debugging() {
@@ -16,8 +17,16 @@ async function turn_gui_into_debugging() {
 }
 
 // Disable debugging gui and enable pre-debugging gui
-async function turn_gui_back_from_debugging() {
+async function turn_gui_back_from_debugging(timeout, runtime_error, runtime_error_details) {
     await document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = true);
+    if (timeout) {
+        document.getElementById("status").textContent = "Przekroczono limit czasu na komendę!";
+    } else if (runtime_error) {
+        document.getElementById("status").textContent = "Błąd wykonania w czasie wykonania!";
+        document.getElementById("statusDetails").textContent = runtime_error_details;
+    } else {
+        document.getElementById("status").textContent = "Zakończono debugowanie!";
+    }
 }
 
 // Function to sleep in async function
@@ -32,7 +41,6 @@ async function highlightLine(lineNumber) {
     editor.addLineClass(lineNumber-1, "wrap", "highlighted-line");
     last_highlighted = lineNumber-1;
 }
-
 
 // Connection debuginfo
 socket.on("connect", () => {
@@ -67,6 +75,8 @@ socket.on("started_debugging", (data) => {
 socket.on("pong", async (data) => {
     console.log("Server responded! Status:", data.status);
 
+    if (!is_running) return;
+
     await sleep(ping_back_after);
 
     console.log("Now we ping back");
@@ -79,11 +89,21 @@ socket.on("debug_data", async (data) => {
     console.log(data);
     highlightLine(data.line)
 
-    if (!data.is_running) {
-        await turn_gui_back_from_debugging()
+    is_running = data.is_running;
+
+    if (!is_running) {
+        await turn_gui_back_from_debugging(data.timeout, data.runtime_error, data.runtime_error_details);
+    } else {
+        document.getElementById("variablesInfo").textContent = "";
+
+        data.local_variables.forEach(element => {
+            document.getElementById("variablesInfo").textContent += JSON.stringify(element, null, 2) + "\n";
+        });
     }
 })
 
+// this thing below was written by chatgpt
+// beginregion
 document.addEventListener("DOMContentLoaded", function () {
     editor = CodeMirror.fromTextArea(document.getElementById("cppEditor"), {
         mode: "text/x-c++src", // C++ syntax highlighting
@@ -96,6 +116,7 @@ document.addEventListener("DOMContentLoaded", function () {
         autoCloseBrackets: true, // Automatically close brackets
     });
 });
+// endregion
 
 // Listen for stopping
 document.getElementById("zakonczDebugowanie").addEventListener("click", function stop_debugging() {
