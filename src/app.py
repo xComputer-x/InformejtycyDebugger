@@ -81,12 +81,12 @@ def main() -> None:
 with app.app_context():
 	compiler = Compiler(logger, 'g++', RECEIVED_DIR, DEBUG_DIR)
 	
-	logger.debug("Starting cleaning process", main)
+	logger.info("Starting cleaning process", main)
 
 	lt = Thread(target=clean_unused_debug_processes)
 	lt.start()
 
-	logger.debug(f"Cleaning process has started", main)
+	logger.info(f"Cleaning process has started", main)
 
 	# For debugging
 	# Server use it to indentify debugging processes
@@ -101,39 +101,22 @@ Flask & SocketIO functions
 # Captures websocket connection for debugging.
 @socketio.on('connect')
 def handle_connect() -> None:
-	logger.debug(f"Client connected: {request.sid}", handle_connect)
+	logger.info(f"Client connected: {request.sid}", handle_connect)
 
 # Captures websocket disconnection.
 @socketio.on('disconnect')
 def handle_disconnect() -> None:
-	logger.debug(f"Client disconnected: {request.sid}", handle_disconnect)
-
-@socketio.on('ping')
-def handle_debug_ping(data: dict[str: str]) -> None:
-	if not "authorization" in data:
-		return
-
-	authorization = data["authorization"]
-	logger.spam(f"Client pinged debugger with authorization: {authorization}", handle_debug_ping)
-
-	with debug_processes_lock:
-		if not check_if_process_alive(authorization):
-			emit("pong", {"status": "invalid authorization (or process might have been stopped)"})
-			logger.spam(f"Emitted \"pong\" (with invalid authorization) to {request.sid}", handle_debug_ping)
-		else:
-			app.config["debug_processes"][authorization].ping()
-			emit("pong", {"status": "ok"})
-
-			logger.spam(f"Emitted \"pong\" to {request.sid}", handle_debug_ping)
+	logger.info(f"Client disconnected: {request.sid}", handle_disconnect)
 
 # Captures websocket debugging request.
 @socketio.on('start_debugging')
 def handle_debugging(data: dict[str: str]) -> None:
+	if not "code" in data or not "input" in data:
+		emit("No code and/or input in request")
+		return
+	
 	logger.debug(f"Client requested debugging: {request.sid}", handle_debugging)
 	logger.debug(f"Data: {data}", handle_debugging)
-
-	if not "code" in data or not "input" in data:
-		return
 
 	file_name, auth = make_cpp_file_for_debugger(data["code"])
 
@@ -165,9 +148,31 @@ def handle_debugging(data: dict[str: str]) -> None:
 	debug_data["status"] = "ok"
 	emit("debug_data", debug_data)
 
+# Captures debug class ping. Used to keep debug class alive
+@socketio.on('ping')
+def handle_debug_ping(data: dict[str: str]) -> None:
+	if not "authorization" in data:
+		emit("No authorization in request")
+		return
+
+	authorization = data["authorization"]
+	logger.spam(f"Client pinged debugger with authorization: {authorization}", handle_debug_ping)
+
+	with debug_processes_lock:
+		if not check_if_process_alive(authorization):
+			emit("pong", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"pong\" (with invalid authorization) to {request.sid}", handle_debug_ping)
+		else:
+			app.config["debug_processes"][authorization].ping()
+
+			emit("pong", {"status": "ok"})
+			logger.spam(f"Emitted \"pong\" to {request.sid}", handle_debug_ping)
+
+# Captures debugging step
 @socketio.on("step")
 def handle_stepping(data: dict[str: str]) -> None:
 	if not "authorization" in data:
+		emit("No authorization in request")
 		return
 
 	authorization = data["authorization"]
@@ -180,6 +185,29 @@ def handle_stepping(data: dict[str: str]) -> None:
 		else:
 			output = app.config["debug_processes"][authorization].step()
 			output["status"] = "ok"
+
+			emit("debug_data", output)
+			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
+
+# Captures debugging stop
+@socketio.on("stop")
+def handle_stopping(data: dict[str: str]) -> None:
+	if not "authorization" in data:
+		emit("No authorization in request")
+		return
+	
+	authorization = data["authorization"]
+	logger.spam(f"Client requested stopping with authorization: {authorization}", handle_stepping)
+
+	with debug_processes_lock:
+		if not check_if_process_alive(authorization):
+			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
+		else:
+			output = app.config["debug_processes"][authorization].stop()
+			del app.config["debug_processes"][authorization]
+			output["status"] = "ok"
+
 			emit("debug_data", output)
 			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
 

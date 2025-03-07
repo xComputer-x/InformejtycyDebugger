@@ -7,15 +7,16 @@ const socket = io({
 
 const ping_back_after = 3000; // Delay before ping after server's PONG reponse
 
+var editor;
+var last_highlighted;
+
 // Enable debugging gui and disable pre-debugging gui
 async function turn_gui_into_debugging() {
-
     await document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = false);
 }
 
 // Disable debugging gui and enable pre-debugging gui
 async function turn_gui_back_from_debugging() {
-
     await document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = true);
 }
 
@@ -24,23 +25,12 @@ function sleep(time_in_miliseconds) {
     return new Promise((resolve) => setTimeout(resolve, time_in_miliseconds));
 }
 
-function highlightLine(lineNumber) {
-    const elements = document.querySelectorAll('.linemark');
-
-    // Loop through each element
-    elements.forEach(element => {
-        // Replace the element with its text content
-        element.replaceWith(element.textContent);
-    });
-
-    const preElement = document.getElementById("debugCode");
-    if (!preElement) return;
-    
-    const lines = preElement.innerHTML.split('\n');
-    if (lineNumber < 1 || lineNumber > lines.length) return;
-    
-    lines[lineNumber - 1] = `<mark class="linemark">${lines[lineNumber - 1]}</mark>`;
-    preElement.innerHTML = lines.join('\n');
+async function highlightLine(lineNumber) {
+    if (last_highlighted) {
+        editor.removeLineClass(last_highlighted, "wrap", "highlighted-line");
+    }
+    editor.addLineClass(lineNumber-1, "wrap", "highlighted-line");
+    last_highlighted = lineNumber-1;
 }
 
 
@@ -88,11 +78,36 @@ socket.on("debug_data", async (data) => {
     console.log("Server responded! Status:", data.status);
     console.log(data);
     highlightLine(data.line)
+
+    if (!data.is_running) {
+        await turn_gui_back_from_debugging()
+    }
+})
+
+document.addEventListener("DOMContentLoaded", function () {
+    editor = CodeMirror.fromTextArea(document.getElementById("cppEditor"), {
+        mode: "text/x-c++src", // C++ syntax highlighting
+        theme: "monokai",      // Editor theme
+        lineNumbers: true,     // Show line numbers
+        tabSize: 4,            // Set tab width
+        indentWithTabs: true,  // Use tabs instead of spaces
+        smartIndent: true,     // Auto-indent new lines
+        matchBrackets: true,   // Highlight matching brackets
+        autoCloseBrackets: true, // Automatically close brackets
+    });
+});
+
+// Listen for stopping
+document.getElementById("zakonczDebugowanie").addEventListener("click", function stop_debugging() {
+    socket.emit("stop", {authorization: authorization});
 })
 
 // Start of debugging
 document.getElementById("debugStart").addEventListener("click", function start_debugging() {
-    socket.emit("start_debugging", {code: document.querySelector('#debugCode').innerText, input: ""});
+    document.getElementById("status").textContent = "Wysłano prośbę o rozpoczęcie debugowania";
+    document.getElementById("statusDetails").textContent = "";
+
+    socket.emit("start_debugging", {code: editor.getValue(), input: ""});
 })
 
 // Listen for stepping

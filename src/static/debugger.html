@@ -5,6 +5,10 @@
 
 	<link rel="preload" href="/debugger/style.css" as="style" onload="this.rel='stylesheet'">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.1/socket.io.min.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/clike/clike.min.js"></script>
 </head>
 <body>
 	<div id="panelGorny">
@@ -15,8 +19,12 @@
 
 	To jest demo debuggera.
 
-	<pre contentEditable="true" id="debugCode"></pre>
-	<!-- <textarea id="debugCode" rows="10"></textarea> -->
+	<textarea id="cppEditor"></textarea>
+	<!-- <pre onPaste="setTimeout(function() {onPaste();}, 0)" id="editable" contenteditable>
+  		<code id="c++" class="language-c++"></code>
+	</pre> -->
+	<!-- <div class="language-c++ editable-code" contenteditable="true" spellcheck="false"></div> -->
+	<!-- <pre contentEditable="true" id="debugCode"><code></code></pre> -->
 
 	<p>Status: <p id="status">oczekiwanie na wysłanie kodu do debugowania</p></p>
 	<pre><code id="statusDetails"></code></pre>

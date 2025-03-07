@@ -1,15 +1,4 @@
-#debugCode {
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-}
 
-pre {
-    font-family:sans;
-    width: 400px;
-  }
-  
-mark {
-    background:rgb(251, 255, 0);
-    display: block;
-  }
+.highlighted-line {
+    background-color: rgba(255, 255, 0, 0.3); /* Yellow highlight */
+}
