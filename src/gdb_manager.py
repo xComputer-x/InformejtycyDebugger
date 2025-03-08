@@ -34,6 +34,7 @@ class GDBDebugger:
 			"skip -gfi /usr/include/*",
 			"skip -gfi /usr/include/c++/14/*",
 			"skip -gfi /usr/include/c++/14/bits/*",
+			"set print address off",
 			"break *main",
 			"run",
 		]
@@ -63,8 +64,6 @@ class GDBDebugger:
 		return outputs
 	
 	def get_server_output_data(self) -> dict[str: Any]:
-		
-
 		frame_output = self.send_command("frame")[1][-2:]
 		current_function = frame_output[0]["payload"].split(' ')[2]
 		current_line = int(frame_output[1]["payload"].split('\t')[0]) 
@@ -89,6 +88,9 @@ class GDBDebugger:
 
 		return {
 			"is_running": True,
+			"timeout": False,
+    		"runtime_error": False,
+    		"runtime_error_details": "",
 			"function": current_function,
 			"function_return_type": current_function_return_type,
 			"function_parameters_types": current_function_params_types,
@@ -120,10 +122,10 @@ class GDBDebugger:
 				variable_name = local["payload"].split('=')[0][:-1]
 
 				p_output = self.send_command(f"p {variable_name}")[1]
-				variable_value = p_output[0]["payload"].split('=')[-1][1:-1]
+				p_match = re.match(r"[a-zA-Z 0-9$]+=(.*)", p_output[0]["payload"])
+				variable_value = p_match.group(1)[1:]
 
 				whatis_output = self.send_command(f"whatis {variable_name}")[1]
-
 				whatis_match = re.match(r"[a-zA-Z 0-9]+=(.*)", whatis_output[0]["payload"])
 				variale_type = whatis_match.group(1)[1:]
 
@@ -173,7 +175,8 @@ class GDBDebugger:
 				amount_of_values = [1]
 			
 			p_output = self.send_command(f"p {variable_name}")[1]
-			variable_value = p_output[0]["payload"].split('=')[-1][1:-1]
+			p_match = re.match(r"[a-zA-Z 0-9$]+=(.*)", p_output[0]["payload"])
+			variable_value = p_match.group(1)[1:]
 
 			return {"variable_supported": True, "variable_type": variable_type, "variable_name": variable_name, "variable_value": variable_value, "amount_of_values": amount_of_values}
 		except Exception as e:
