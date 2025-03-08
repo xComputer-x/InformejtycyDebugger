@@ -53,21 +53,21 @@ socket.on("disconnect", () => {
 })
 
 // When server responds after start_debugging
-socket.on("started_debugging", (data) => {
+socket.on("started_debugging", async (data) => {
     if (data.compilation_error) {
         turn_gui_back_from_debugging();
         document.getElementById("status").textContent = "błąd kompilacji! Przerywanie debugowania! ";
         document.getElementById("statusDetails").textContent = data.compilation_error_details;
     } else {
-        turn_gui_into_debugging();
-        document.getElementById("status").textContent = "sukces. Rozpoczęto debugowanie!";
+        await turn_gui_into_debugging();
+        document.getElementById("status").textContent = "Sukces! Serwer uruchomił debugger. Aby rozpocząć debugowanie, wybierz punkty przerwania kodu (breakpointy), a następnie naciśnij przycisk \"Uruchom kod\"";
         document.getElementById("statusDetails").textContent = "";
 
         auth = data.authorization;
         authorization = data.authorization;
         console.log("Started debugging, auth:", auth);
 
-        socket.emit("ping", {authorization: auth});
+        await socket.emit("ping", {authorization: auth});
     }
 })
 
@@ -80,7 +80,7 @@ socket.on("pong", async (data) => {
     await sleep(ping_back_after);
 
     console.log("Now we ping back");
-    socket.emit("ping", {authorization: auth});
+    await socket.emit("ping", {authorization: auth});
 })
 
 // After some action receive debugging information
@@ -119,21 +119,30 @@ document.addEventListener("DOMContentLoaded", function () {
 // endregion
 
 // Listen for stopping
-document.getElementById("zakonczDebugowanie").addEventListener("click", function stop_debugging() {
-    socket.emit("stop", {authorization: authorization});
+document.getElementById("zakonczDebugowanie").addEventListener("click", async () => {
+    await socket.emit("stop", {authorization: authorization});
 })
 
 // Start of debugging
-document.getElementById("debugStart").addEventListener("click", function start_debugging() {
+document.getElementById("debugStart").addEventListener("click", async () => {
     document.getElementById("status").textContent = "Wysłano prośbę o rozpoczęcie debugowania";
     document.getElementById("statusDetails").textContent = "";
 
-    socket.emit("start_debugging", {code: editor.getValue(), input: ""});
+    await socket.emit("start_debugging", {code: editor.getValue(), input: ""});
 })
 
 // Listen for stepping
-document.getElementById("krokDoPrzodu").addEventListener("click", function step_forward() {
-    socket.emit("step", {authorization: authorization});
+document.getElementById("krokDoPrzodu").addEventListener("click", async () => {
+    await socket.emit("step", {authorization: authorization});
 })
+
+document.getElementById("uruchomKod").addEventListener("click", async () => {
+    await socket.emit("run", {authorization: authorization});
+})
+
+document.getElementById("kontynuujWykonanie").addEventListener("click", async () => {
+    await socket.emit("continue", {authorization: authorization});
+})
+
 
 turn_gui_back_from_debugging()

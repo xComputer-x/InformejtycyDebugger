@@ -144,10 +144,6 @@ def handle_debugging(data: dict[str: str]) -> None:
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 
-		debug_data = debugger_class.get_server_output_data()
-		debug_data["status"] = "ok"
-		emit("debug_data", debug_data)
-
 # Captures debug class ping. Used to keep debug class alive
 @socketio.on('ping')
 def handle_debug_ping(data: dict[str: str]) -> None:
@@ -167,6 +163,48 @@ def handle_debug_ping(data: dict[str: str]) -> None:
 
 			emit("pong", {"status": "ok"})
 			logger.spam(f"Emitted \"pong\" to {request.sid}", handle_debug_ping)
+
+# Captures running debugged program
+@socketio.on("run")
+def handle_stepping(data: dict[str: str]) -> None:
+	if not "authorization" in data:
+		emit("No authorization in request")
+		return
+
+	authorization = data["authorization"]
+	logger.spam(f"Client requested running debugged program with authorization: {authorization}", handle_stepping)
+
+	with debug_processes_lock:
+		if not check_if_process_alive(authorization):
+			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
+		else:
+			output = app.config["debug_processes"][authorization].run()
+			output["status"] = "ok"
+
+			emit("debug_data", output)
+			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
+
+# Captures continuing execution
+@socketio.on("continue")
+def handle_stepping(data: dict[str: str]) -> None:
+	if not "authorization" in data:
+		emit("No authorization in request")
+		return
+
+	authorization = data["authorization"]
+	logger.spam(f"Client requested continuing program with authorization: {authorization}", handle_stepping)
+
+	with debug_processes_lock:
+		if not check_if_process_alive(authorization):
+			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
+		else:
+			output = app.config["debug_processes"][authorization].continue_()
+			output["status"] = "ok"
+
+			emit("debug_data", output)
+			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
 
 # Captures debugging step
 @socketio.on("step")

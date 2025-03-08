@@ -2,6 +2,7 @@ import os
 import re
 import time
 import pexpect
+import eventlet
 from typing import Optional, Any
 from pygdbmi.gdbmiparser import parse_response
 from uuid import uuid4
@@ -34,6 +35,7 @@ class GDBDebugger:
 			"skip -gfi /usr/include/*",
 			"skip -gfi /usr/include/c++/14/*",
 			"skip -gfi /usr/include/c++/14/bits/*",
+			"break *main" # tymczasowo ustawiany jest domyślnie breakpoint na main (dopóki Patryk nie zrobi ładnego GUI)
 		]
 
 		self.compiled_file_name = ""
@@ -179,8 +181,8 @@ class GDBDebugger:
 		
 		return {"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""}
 
-	def step(self) -> bool:
-		self.send_command("step")
+	def check_state_after_move(self) -> dict[str: Any]:
+		eventlet.sleep(0.05) # Should help with occasional error at the end of program
 		status, program_output = self.send_command("info program")
 
 		if status == "timeout":
@@ -208,7 +210,17 @@ class GDBDebugger:
 		return_value["is_running"] = True
 		return return_value
 
-#	def finish(self) -> 
+	def step(self) -> dict[str: Any]:
+		self.send_command("step")
+		return self.check_state_after_move()
+
+	def run(self) -> dict[str: Any]:
+		self.send_command("run")
+		return self.check_state_after_move()
+	
+	def continue_(self) -> dict[str: Any]:
+		self.send_command("continue")
+		return self.check_state_after_move()
 
 	def send_command(self, command: str, whole_output: bool = False) -> tuple[str, list[dict[str: Any]]]:	
 		'''
