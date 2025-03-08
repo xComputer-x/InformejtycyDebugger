@@ -124,8 +124,7 @@ def handle_debugging(data: dict[str: str]) -> None:
 
 	debugger_class = GDBDebugger(logger, compiler, DEBUG_DIR, GDB_PRINTERS_DIR, file_name)
 	app.config["debug_processes"][auth] = debugger_class
-
-	run_exit_code, stdout = debugger_class.run(data["input"])
+	run_exit_code, stdout = debugger_class.init_process(data["input"])
 
 	data_to_be_sent: dict[str: str | bool] = dict(DEBUGDATA_TEMPLATE)
 

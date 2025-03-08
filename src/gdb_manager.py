@@ -34,9 +34,6 @@ class GDBDebugger:
 			"skip -gfi /usr/include/*",
 			"skip -gfi /usr/include/c++/14/*",
 			"skip -gfi /usr/include/c++/14/bits/*",
-			"set print address off",
-			"break *main",
-			"run",
 		]
 
 		self.compiled_file_name = ""
@@ -45,7 +42,8 @@ class GDBDebugger:
 		self.stdin_input_file: str = ""
 
 		self.docker_manager = DockerManager(self.debug_dir, self.gdb_printers_dir)
-		self.has_been_run: bool = False
+		self.has_been_initialized: bool = False # Was init_process run
+		self.has_been_run: bool = False # Was "run" command executed
 
 	def ping(self) -> None:
 		'''
@@ -65,13 +63,13 @@ class GDBDebugger:
 	
 	def get_server_output_data(self) -> dict[str: Any]:
 		frame_output = self.send_command("frame")[1][-2:]
-		current_function = frame_output[0]["payload"].split(' ')[2]
-		current_line = int(frame_output[1]["payload"].split('\t')[0]) 
+		frame_match = re.match(r".+\s+((.+::)+)*([a-zA-Z_0-9]+).*\s+\(.*\).+:(\d+)", frame_output[0]["payload"])
+		current_function = frame_match.group(3)
+		current_line = int(frame_match.group(4))
 
 		whatis_output = self.send_command(f"whatis {current_function}")[1]
-		current_function_return_type = whatis_output[0]["payload"].split(' ')[2]
-		current_function_params_types = whatis_output[0]["payload"].split(' ')[3][:-1]
-		current_function_params_types = current_function_params_types if current_function_params_types != "(void)" else "()"
+		whatis_match = re.match(r".+=\s+(.+)\s+\(.+", whatis_output[0]["payload"])
+		current_function_return_type = whatis_match.group(1)
 
 		global_variables = self.get_global_variables()
 		local_variables = self.get_local_variables()
@@ -83,7 +81,6 @@ class GDBDebugger:
 
 		self.logger.info(f"Current function: {current_function}", self.get_server_output_data)
 		self.logger.info(f"Current function's return type: {current_function_return_type}", self.get_server_output_data)
-		self.logger.info(f"Current function's parameters types: {current_function_params_types}", self.get_server_output_data)
 		self.logger.info(f"Current line: {current_line}", self.get_server_output_data)
 
 		return {
@@ -93,33 +90,28 @@ class GDBDebugger:
     		"runtime_error_details": "",
 			"function": current_function,
 			"function_return_type": current_function_return_type,
-			"function_parameters_types": current_function_params_types,
 			"line": current_line,
 			"global_variables": global_variables,
 			"local_variables": local_variables,
 			"arguments": local_arguments
 		}
 
-	# Work in progress...
 	def get_local_arguments(self) -> list[dict[str: Any]]:
-		args_output = self.send_command("info args")[1]
-		local_args = []
-
-		if args_output[0]["payload"] == "No arguments.\n":
-			return local_args
-		
-		return local_args
+		return self.get_non_global_variables("args", "No arguments.\n")
 
 	def get_local_variables(self) -> list[dict[str: Any]]:
-		local_output = self.send_command("info locals")[1]
-		local_variables = []
+		return self.get_non_global_variables("local", "No locals.\n")
 
-		if local_output[0]["payload"] == "No locals.\n":
-			return local_variables
+	def get_non_global_variables(self, what_variable_type: str, no_smth_message: str) -> list[dict[str: Any]]:
+		output = self.send_command(f"info {what_variable_type}")[1]
+		variables = []
 
-		for local in local_output:
+		if output[0]["payload"] == no_smth_message:
+			return []
+
+		for var in output:
 			try:
-				variable_name = local["payload"].split('=')[0][:-1]
+				variable_name = var["payload"].split('=')[0][:-1]
 
 				p_output = self.send_command(f"p {variable_name}")[1]
 				p_match = re.match(r"[a-zA-Z 0-9$]+=(.*)", p_output[0]["payload"])
@@ -129,17 +121,20 @@ class GDBDebugger:
 				whatis_match = re.match(r"[a-zA-Z 0-9]+=(.*)", whatis_output[0]["payload"])
 				variale_type = whatis_match.group(1)[1:]
 
-				try:
-					amount_of_values = [int(element) for element in whatis_output[0]["payload"][:-1].split(' ')[3].replace('[', ' ').replace(']', '').strip().split(' ')]
-				except:
+				whatis_match = re.match(r"(.+\s+=\s+.+\s)((\[\d+\])+)", whatis_output[0]["payload"])
+
+				if not whatis_match:
 					amount_of_values = [1]
-				local_variables.append({"variable_supported": True, "variable_type": variale_type, "variable_name": variable_name, "variable_value": variable_value, "amount_of_values": amount_of_values})
+				else:
+					amount_of_values = [int(element) for element in whatis_match.group(2)[1:-1].split('][')]
+					
+				variables.append({"variable_supported": True, "variable_type": variale_type, "variable_name": variable_name, "variable_value": variable_value, "amount_of_values": amount_of_values})
 
 			except Exception as e:
-				self.logger.warn(f"Local variable {local} couln't be displayed... | {e.__class__.__name__}: {e}", self.get_local_variables)
-				local_variables.append({"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""})
+				self.logger.warn(f"{what_variable_type} variable {var} couln't be displayed... | {e.__class__.__name__}: {e}", self.get_non_global_variables)
+				variables.append({"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""})
 
-		return local_variables
+		return variables
 
 	def get_global_variables(self) -> list[dict[str: Any]]:
 		variables_output = self.send_command("info variables")[1]
@@ -201,7 +196,7 @@ class GDBDebugger:
 			self.stop()
 			return out
 		
-		if len(program_output) > 1 and program_output[1]["payload"].startswith(" received signal SIG"):
+		if len(program_output) > 1 and program_output[1]["payload"].startswith(" received signal"):
 			out = dict(DEBUGDATA_TEMPLATE)
 			out["is_running"] = False
 			out["runtime_error"] = True
@@ -213,7 +208,9 @@ class GDBDebugger:
 		return_value["is_running"] = True
 		return return_value
 
-	def send_command(self, command: str, whole_output: bool = False) -> tuple[str, list[dict[str: Any]]]:
+#	def finish(self) -> 
+
+	def send_command(self, command: str, whole_output: bool = False) -> tuple[str, list[dict[str: Any]]]:	
 		'''
 		Executes gdb command.
 		:param command: command, to be executed
@@ -242,7 +239,7 @@ class GDBDebugger:
 
 		return (which_response, self.get_formatted_gdb_output(whole_output))
 
-	def run(self, input_: str) -> tuple[int, bytes]:
+	def init_process(self, input_: str) -> tuple[int, bytes]:
 		'''
 		Runs debug process (gdb).
 		:param input_: stdin to debugged process
@@ -253,7 +250,7 @@ class GDBDebugger:
 		output_file_name, stdout = self.compiler.compile(self.input_file_name)
 
 		if not os.path.exists(os.path.join(self.debug_dir, output_file_name)):
-			self.has_been_run = True # If it fails, it should be cleaned
+			self.has_been_initialized = True # If it fails, it should be cleaned
 			return (-1, stdout)
 
 		self.container_name = str(uuid4())
@@ -270,7 +267,7 @@ class GDBDebugger:
 		self.logger.spam(f"{stdout}", self.run)
 
 		if status in [DckStatus.docker_build_error, DckStatus.internal_docker_manager_error]:
-			self.has_been_run = True # If it fails, it should be cleaned
+			self.has_been_initialized = True # If it fails, it should be cleaned
 			self.logger.alert(f"Building error: {status}", self.run)
 			return (-2, stdout)
 
@@ -288,7 +285,7 @@ class GDBDebugger:
 		for command in self.gdb_init_input:
 			self.logger.spam(self.send_command(command)[1], self.run)
 		
-		self.has_been_run = True
+		self.has_been_initialized = True
 
 		return (0, bytes())
 

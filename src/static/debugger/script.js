@@ -22,7 +22,7 @@ async function turn_gui_back_from_debugging(timeout, runtime_error, runtime_erro
     if (timeout) {
         document.getElementById("status").textContent = "Przekroczono limit czasu na komendę!";
     } else if (runtime_error) {
-        document.getElementById("status").textContent = "Błąd wykonania w czasie wykonania!";
+        document.getElementById("status").textContent = "Błąd w czasie wykonania programu!";
         document.getElementById("statusDetails").textContent = runtime_error_details;
     } else {
         document.getElementById("status").textContent = "Zakończono debugowanie!";

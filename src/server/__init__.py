@@ -24,7 +24,6 @@ DEBUGDATA_TEMPLATE: dict[str: Any] = { # (aka. "debug_data") What server sends b
     "runtime_error_details": "",
     "function": "",
     "function_return_type": "",
-    "function_parameters_types": "()",
     "line": 0,
     "global_variables": [],
     "local_variables": [],
