@@ -20,5 +20,6 @@
 - [ ] Potencjalne błędy nie zaczynające się na `received signal` (??)
 - [ ] Potencjalny błąd serwera przy zakończeniu debugowania (??)
     - [ ] **Testowane rozwiązanie:** krótki sleep po wykonaniu komendy, aby `pexpect` otrzymał całkowite wyjście.
+- [ ] Ładne formatowanie elementów structa
 - [ ] Wskaźniki do funkcji (`int (*wsk_do_main)(int, char*)`)
 - [ ] Zmienianie wartości zmiennych
