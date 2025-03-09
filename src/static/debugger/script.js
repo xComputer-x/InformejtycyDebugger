@@ -7,18 +7,20 @@ const socket = io({
 
 const ping_back_after = 3000; // Delay before ping after server's PONG reponse
 
-var editor;
+var editor; // codemirror variable
 var last_highlighted;
 var is_running = false;
 
 // Enable debugging gui and disable pre-debugging gui
 async function turn_gui_into_debugging() {
-    await document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = false);
+    document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = false);
+    document.getElementById("debugStart").disabled = true;
 }
 
 // Disable debugging gui and enable pre-debugging gui
 async function turn_gui_back_from_debugging(timeout, runtime_error, runtime_error_details) {
-    await document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = true);
+    document.querySelectorAll("#panelGorny button").forEach((btn) => btn.disabled = true);
+    document.getElementById("debugStart").disabled = false;
     if (timeout) {
         document.getElementById("status").textContent = "Przekroczono limit czasu na komendę!";
     } else if (runtime_error) {
@@ -60,7 +62,7 @@ socket.on("started_debugging", async (data) => {
         document.getElementById("statusDetails").textContent = data.compilation_error_details;
     } else {
         await turn_gui_into_debugging();
-        document.getElementById("status").textContent = "Sukces! Serwer uruchomił debugger. Aby rozpocząć debugowanie, wybierz punkty przerwania kodu (breakpointy), a następnie naciśnij przycisk \"Uruchom kod\"";
+        document.getElementById("status").textContent = "Sukces! Serwer uruchomił debugger. Aby rozpocząć debugowanie, wybierz punkty przerwania kodu (breakpointy), a następnie naciśnij przycisk \"Uruchom\"";
         document.getElementById("statusDetails").textContent = "";
 
         auth = data.authorization;
@@ -93,9 +95,14 @@ socket.on("debug_data", async (data) => {
 
     if (!is_running) {
         await turn_gui_back_from_debugging(data.timeout, data.runtime_error, data.runtime_error_details);
+
+        const lines = editor.lineCount();
+        for (var i=0; i<lines; i++) {
+            await editor.removeLineClass(i, "wrap", "highlighted-line");
+        }
     } else {
         document.getElementById("variablesInfo").textContent = "";
-
+          
         data.local_variables.forEach(element => {
             document.getElementById("variablesInfo").textContent += JSON.stringify(element, null, 2) + "\n";
         });
@@ -118,12 +125,12 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 // endregion
 
-// Listen for stopping
+// Listen sfor stopping
 document.getElementById("zakonczDebugowanie").addEventListener("click", async () => {
     await socket.emit("stop", {authorization: authorization});
 })
 
-// Start of debugging
+// Starts of debugging
 document.getElementById("debugStart").addEventListener("click", async () => {
     document.getElementById("status").textContent = "Wysłano prośbę o rozpoczęcie debugowania";
     document.getElementById("statusDetails").textContent = "";
@@ -131,18 +138,22 @@ document.getElementById("debugStart").addEventListener("click", async () => {
     await socket.emit("start_debugging", {code: editor.getValue(), input: ""});
 })
 
-// Listen for stepping
+// Listens for stepping
 document.getElementById("krokDoPrzodu").addEventListener("click", async () => {
     await socket.emit("step", {authorization: authorization});
 })
 
+// Listens for running
 document.getElementById("uruchomKod").addEventListener("click", async () => {
     await socket.emit("run", {authorization: authorization});
 })
 
+// Listens for continuing
 document.getElementById("kontynuujWykonanie").addEventListener("click", async () => {
     await socket.emit("continue", {authorization: authorization});
 })
 
-
-turn_gui_back_from_debugging()
+// Listen for finishing
+document.getElementById("zakonczFunkcje").addEventListener("click", async () => {
+    await socket.emit("finish", {authorization: authorization});
+})

@@ -2,7 +2,6 @@ import os
 import re
 import time
 import pexpect
-import eventlet
 from typing import Optional, Any
 from pygdbmi.gdbmiparser import parse_response
 from uuid import uuid4
@@ -31,7 +30,7 @@ class GDBDebugger:
 		self.gdb_init_input = [
 			"python import sys; sys.path.insert(0, '/usr/share/gcc-13/python')",
 			"python from libstdcxx.v6.printers import register_libstdcxx_printers",
-			"python register_libstdcxx_printers(gdb.current_objfile())",
+			"python register_libstdcxx_printers(None)",
 			"skip -gfi /usr/include/*",
 			"skip -gfi /usr/include/c++/14/*",
 			"skip -gfi /usr/include/c++/14/bits/*",
@@ -182,7 +181,6 @@ class GDBDebugger:
 		return {"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""}
 
 	def check_state_after_move(self) -> dict[str: Any]:
-		eventlet.sleep(0.05) # Should help with occasional error at the end of program
 		status, program_output = self.send_command("info program")
 
 		if status == "timeout":
@@ -190,6 +188,12 @@ class GDBDebugger:
 			out["is_running"] = False
 			out["timeout"] = True
 			self.stop()
+			return out
+
+		if program_output[0]["payload"] == "The program being debugged is not being run.\n":
+			out = dict(DEBUGDATA_TEMPLATE)
+			out["is_running"] = True
+			out["additional_gdb_information"] = f"Błąd GDB: należy uruchomić debugowany program, aby móc wykonywać inne komendy"
 			return out
 		
 		if program_output[0]["payload"] == "[Inferior 1 (process 14) exited normally]\n":
@@ -220,6 +224,10 @@ class GDBDebugger:
 	
 	def continue_(self) -> dict[str: Any]:
 		self.send_command("continue")
+		return self.check_state_after_move()
+
+	def finish(self) -> dict[str: Any]:
+		print(self.send_command("finish")[1])
 		return self.check_state_after_move()
 
 	def send_command(self, command: str, whole_output: bool = False) -> tuple[str, list[dict[str: Any]]]:	
@@ -257,7 +265,7 @@ class GDBDebugger:
 		:param input_: stdin to debugged process
 		'''
 
-		self.logger.debug("Compiling for debugging", self.run)
+		self.logger.debug("Compiling for debugging", self.init_process)
 
 		output_file_name, stdout = self.compiler.compile(self.input_file_name)
 
@@ -270,32 +278,32 @@ class GDBDebugger:
 			f.write(input_)
 		self.stdin_input_file = f"input_{self.container_name}.txt"
 
-		self.logger.debug("Building docker container", self.run)
+		self.logger.debug("Building docker container", self.init_process)
 
 		self.compiled_file_name = output_file_name
 		status, stdout = self.docker_manager.build_for_debugger(self.compiled_file_name, self.input_file_name, self.stdin_input_file)
 
-		self.logger.debug(f"docker build debugger: {status}", self.run)
-		self.logger.spam(f"{stdout}", self.run)
+		self.logger.debug(f"docker build debugger: {status}", self.init_process)
+		self.logger.spam(f"{stdout}", self.init_process)
 
 		if status in [DckStatus.docker_build_error, DckStatus.internal_docker_manager_error]:
 			self.has_been_initialized = True # If it fails, it should be cleaned
-			self.logger.alert(f"Building error: {status}", self.run)
+			self.logger.alert(f"Building error: {status}", self.init_process)
 			return (-2, stdout)
 
 		self.process = self.docker_manager.run_for_debugger(self.container_name, DEBUGGER_MEMORY_LIMIT_MB)
 
 		try:
 			self.process.expect_exact("(gdb)")
-			self.logger.spam(self.process.before, self.run)
-			self.logger.debug(f"Process has been correctly started!", self.run)
+			self.logger.spam(self.process.before, self.init_process)
+			self.logger.debug(f"Process has been correctly started!", self.init_process)
 		except:
-			self.logger.spam(self.process.before, self.run)
-			self.logger.alert("Starting went wrong...", self.run)
+			self.logger.spam(self.process.before, self.init_process)
+			self.logger.alert("Starting went wrong...", self.init_process)
 
-		self.logger.debug(f"Sending initalizing commands", self.run)
+		self.logger.debug(f"Sending initalizing commands", self.init_process)
 		for command in self.gdb_init_input:
-			self.logger.spam(self.send_command(command)[1], self.run)
+			self.logger.spam(self.send_command(command)[1], self.init_process)
 		
 		self.has_been_initialized = True
 

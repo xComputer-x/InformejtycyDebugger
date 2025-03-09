@@ -29,3 +29,4 @@ DEBUGDATA_TEMPLATE: dict[str: Any] = { # (aka. "debug_data") What server sends b
     "local_variables": [],
     "arguments": []
 }
+# If custom javascript is used, then "additional_gdb_information" might be also present

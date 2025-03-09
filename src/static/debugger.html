@@ -16,20 +16,27 @@
 </head>
 <body>
 	<div id="panelGorny">
-		<button id="uruchomKod" disabled>Uruchom kod</button>
-		<button id="zakonczDebugowanie" disabled>Zakończ debugowanie</button>
-		<button id="kontynuujWykonanie" disabled>Kontynuuj wykonanie programu</button>
-		<button id="krokDoPrzodu" disabled>Wykonaj krok do przodu</button>
+		<button id="uruchomKod" disabled>Uruchom</button>
+		<button id="zakonczDebugowanie" disabled>Zakończ</button> </br>
+		<button id="kontynuujWykonanie" disabled>kontynuuj</button>
+		<button id="zakonczFunkcje" disabled>Opuść funkcję</button> </br>
+		<button id="krokDoPrzodu" disabled>Krok</button>
 	</div>
 
 	To jest demo debuggera.
 
 	<textarea id="cppEditor"></textarea>
 
+	<p>Dodatkowe informacje
+		<ul>
+			<li>"Opuść funkcję" nie zadziała dla funkcji głównej - we tej sytuacji należy użyć "kontynuuj"</lil>
+		</ul>
+	</p>
+
 	<p>Status: <p id="status">oczekiwanie na wysłanie kodu do debugowania</p></p>
 	<pre><code id="statusDetails"></code></pre>
 
-	<button id="debugStart">Start debugging</button>
+	<button id="debugStart">Włącz debugger</button>
 
 	<pre><code id="variablesInfo"></code></pre>
 	

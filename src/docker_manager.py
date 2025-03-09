@@ -34,8 +34,8 @@ class DockerManager():
 			f"RUN apt install -y gdb",
 			f"RUN mkdir -p app/received",															# Make work directory
 			f"RUN groupadd --system appgroup && useradd --system --no-create-home --gid appgroup appuser",							# Make user without root permissions
-			f"RUN mkdir -p /usr/share/gcc/python/libstdcxx/v6/",									# Making directory for printers.py (gdb pretty print)
-			f"COPY ./printers.py /usr/share/gcc/python/libstdcxx/v6/printers.py", 					# Copying printers.py
+			f"RUN mkdir -p /usr/share/gcc/13/python/libstdcxx/v6/",									# Making directory for printers.py (gdb pretty print)
+			f"COPY ./printers.py /usr/share/gcc/13/python/libstdcxx/v6/printers.py", 					# Copying printers.py
 			f"COPY {executable_file_name} /app/a.out",												# Copying executable .out
 			f"COPY {source_file_name} /app/received/{source_file_name}", 							# Copying source .cpp
 			f"COPY {stdin_file_name} /app/{stdin_file_name}",

@@ -1,11 +1,20 @@
+'''
+Server for informejtycy online debugger (https://informejtycy.pl);
+Server is made using Flask with Eventlet and SocketIO technology;
+Should be run with gunicorn on IP 0.0.0.0 (port 5000 is already in use for checker);
+Under the hood, online debugger is GNU GDB with machine interface MI3. To communicate with interactive GDB it uses pexpect module;
+Demo can be found on http://127.0.0.1:5000/debugger.html;
+'''
+
 import os
 import sys
 import time
 import eventlet
 from threading import Thread, Lock
-from flask import Flask, request, Response
+from flask import Flask, request
 from flask_socketio import SocketIO, emit
 from uuid import uuid4
+from typing import Callable
 
 from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DEBUGDATA_TEMPLATE
 from compiler_manager import Compiler
@@ -13,6 +22,7 @@ from gdb_manager import GDBDebugger
 from logger import Logger
 from flask_cors import CORS
 
+# Flask configuration initialization
 app = Flask(__name__, static_url_path="", static_folder="static/")
 app.config["SECRET_KEY"] = SECRET_KEY
 socketio = SocketIO(app, async_mode="eventlet")
@@ -31,7 +41,11 @@ os.makedirs(DEBUG_DIR, exist_ok=True)
 debug_processes_lock = Lock()
 
 '''
-Server functions
+================================================
+|                                              |
+|               Server functions               |
+|                                              |
+===============================================|
 '''
 
 # Creates a .cpp source code file for debugging
@@ -72,7 +86,11 @@ def check_if_process_alive(authorization: str) -> bool:
 	return True
 
 '''
-To be executed, after the server has started
+================================================
+|                                              |
+| To be executed, after the server has started |
+|                                              |
+===============================================|
 '''
 
 # For logger, in case something is logged outside of function scope
@@ -97,7 +115,11 @@ with app.app_context():
 	logger.info(f"Server is running on {IP}:{PORT}", main)
 
 '''
-Flask & SocketIO functions
+================================================
+|                                              |
+|         Flask & SocketIO functions           |
+|                                              |
+===============================================|
 '''
 
 # Captures websocket connection for debugging.
@@ -144,112 +166,64 @@ def handle_debugging(data: dict[str: str]) -> None:
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 
+# Base for debugger actions handling functions
+def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dict[str: str]], None], data: dict[str: str]) -> None:
+	if not "authorization" in data:
+		emit("No authorization in request")
+		return
+
+	authorization = data["authorization"]
+	logger.spam(f"Client {what_client_did}, with authorization: {authorization}", from_)
+
+	with debug_processes_lock:
+		if not check_if_process_alive(authorization):
+			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", from_)
+		else:
+			output = getattr(app.config["debug_processes"][authorization], method_name)()
+			if not output:
+				output = dict(DEBUGDATA_TEMPLATE)
+			output["status"] = "ok"
+
+			emit("debug_data", output)
+			logger.spam(f"Emitted \"debug_data\" to {request.sid}", from_)
+
 # Captures debug class ping. Used to keep debug class alive
 @socketio.on('ping')
 def handle_debug_ping(data: dict[str: str]) -> None:
-	if not "authorization" in data:
-		emit("No authorization in request")
-		return
-
-	authorization = data["authorization"]
-	logger.spam(f"Client pinged debugger with authorization: {authorization}", handle_debug_ping)
-
-	with debug_processes_lock:
-		if not check_if_process_alive(authorization):
-			emit("pong", {"status": "invalid authorization (or process might have been stopped)"})
-			logger.spam(f"Emitted \"pong\" (with invalid authorization) to {request.sid}", handle_debug_ping)
-		else:
-			app.config["debug_processes"][authorization].ping()
-
-			emit("pong", {"status": "ok"})
-			logger.spam(f"Emitted \"pong\" to {request.sid}", handle_debug_ping)
+	debugger_action("pinged debugger class", "ping", handle_debug_ping, data)
 
 # Captures running debugged program
 @socketio.on("run")
-def handle_stepping(data: dict[str: str]) -> None:
-	if not "authorization" in data:
-		emit("No authorization in request")
-		return
-
-	authorization = data["authorization"]
-	logger.spam(f"Client requested running debugged program with authorization: {authorization}", handle_stepping)
-
-	with debug_processes_lock:
-		if not check_if_process_alive(authorization):
-			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
-			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
-		else:
-			output = app.config["debug_processes"][authorization].run()
-			output["status"] = "ok"
-
-			emit("debug_data", output)
-			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
+def handle_running(data: dict[str: str]) -> None:
+	debugger_action("requested running debugged code", "run", handle_running, data)
 
 # Captures continuing execution
 @socketio.on("continue")
-def handle_stepping(data: dict[str: str]) -> None:
-	if not "authorization" in data:
-		emit("No authorization in request")
-		return
+def handle_continuing(data: dict[str: str]) -> None:
+	debugger_action("requested continuing debugged code", "continue_", handle_continuing, data)
 
-	authorization = data["authorization"]
-	logger.spam(f"Client requested continuing program with authorization: {authorization}", handle_stepping)
-
-	with debug_processes_lock:
-		if not check_if_process_alive(authorization):
-			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
-			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
-		else:
-			output = app.config["debug_processes"][authorization].continue_()
-			output["status"] = "ok"
-
-			emit("debug_data", output)
-			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
-
-# Captures debugging step
+# Captures stepping in debugged code
 @socketio.on("step")
 def handle_stepping(data: dict[str: str]) -> None:
-	if not "authorization" in data:
-		emit("No authorization in request")
-		return
+	debugger_action("requested stepping", "step", handle_stepping, data)
 
-	authorization = data["authorization"]
-	logger.spam(f"Client requested stepping with authorization: {authorization}", handle_stepping)
-
-	with debug_processes_lock:
-		if not check_if_process_alive(authorization):
-			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
-			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
-		else:
-			output = app.config["debug_processes"][authorization].step()
-			output["status"] = "ok"
-
-			emit("debug_data", output)
-			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
+# Captures finishing debugged function
+@socketio.on("finish")
+def handle_finishing(data: dict[str: str]) -> None:
+	debugger_action("requested finishing", "finish", handle_finishing, data)
 
 # Captures debugging stop
 @socketio.on("stop")
 def handle_stopping(data: dict[str: str]) -> None:
-	if not "authorization" in data:
-		emit("No authorization in request")
-		return
-	
-	authorization = data["authorization"]
-	logger.spam(f"Client requested stopping with authorization: {authorization}", handle_stepping)
-
-	with debug_processes_lock:
-		if not check_if_process_alive(authorization):
-			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
-			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_stepping)
-		else:
-			app.config["debug_processes"][authorization].stop()
-			del app.config["debug_processes"][authorization]
-
-			emit("debug_data", {"status": "ok"})
-			logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_stepping)
+	debugger_action("requested stopping", "stop", handle_stopping, data)
 
 '''
-Running the server
+================================================
+|                                              |
+|             Running the server               |
+|                                              |
+===============================================|
 '''
 
 if __name__ == "__main__":
