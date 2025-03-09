@@ -89,6 +89,12 @@ socket.on("pong", async (data) => {
 socket.on("debug_data", async (data) => {
     console.log("Server responded! Status:", data.status);
     console.log(data);
+
+    if (data.status != "ok") {
+        console.log("Something went wrong... Status is not ok!");
+        return;
+    }
+
     highlightLine(data.line)
 
     is_running = data.is_running;
@@ -125,11 +131,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 // endregion
 
-// Listen sfor stopping
-document.getElementById("zakonczDebugowanie").addEventListener("click", async () => {
-    await socket.emit("stop", {authorization: authorization});
-})
-
 // Starts of debugging
 document.getElementById("debugStart").addEventListener("click", async () => {
     document.getElementById("status").textContent = "Wysłano prośbę o rozpoczęcie debugowania";
@@ -138,22 +139,31 @@ document.getElementById("debugStart").addEventListener("click", async () => {
     await socket.emit("start_debugging", {code: editor.getValue(), input: ""});
 })
 
+//
+// "add_breakpoints" and "remove_breakpoints" should be arrays of integers
+//
+
 // Listens for stepping
 document.getElementById("krokDoPrzodu").addEventListener("click", async () => {
-    await socket.emit("step", {authorization: authorization});
+    await socket.emit("step", {authorization: authorization, add_breakpoints: [], remove_breakpoints: []});
 })
 
 // Listens for running
 document.getElementById("uruchomKod").addEventListener("click", async () => {
-    await socket.emit("run", {authorization: authorization});
+    await socket.emit("run", {authorization: authorization, add_breakpoints: [], remove_breakpoints: []});
 })
 
 // Listens for continuing
 document.getElementById("kontynuujWykonanie").addEventListener("click", async () => {
-    await socket.emit("continue", {authorization: authorization});
+    await socket.emit("continue", {authorization: authorization, add_breakpoints: [], remove_breakpoints: []});
 })
 
 // Listen for finishing
 document.getElementById("zakonczFunkcje").addEventListener("click", async () => {
-    await socket.emit("finish", {authorization: authorization});
+    await socket.emit("finish", {authorization: authorization, add_breakpoints: [], remove_breakpoints: []});
+})
+
+// Listen sfor stopping
+document.getElementById("zakonczDebugowanie").addEventListener("click", async () => {
+    await socket.emit("stop", {authorization: authorization});
 })

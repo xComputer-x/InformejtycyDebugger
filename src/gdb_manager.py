@@ -214,19 +214,19 @@ class GDBDebugger:
 		return_value["is_running"] = True
 		return return_value
 
-	def step(self) -> dict[str: Any]:
+	def step(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
 		self.send_command("step")
 		return self.check_state_after_move()
 
-	def run(self) -> dict[str: Any]:
+	def run(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
 		self.send_command("run")
 		return self.check_state_after_move()
 	
-	def continue_(self) -> dict[str: Any]:
+	def continue_(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
 		self.send_command("continue")
 		return self.check_state_after_move()
 
-	def finish(self) -> dict[str: Any]:
+	def finish(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
 		print(self.send_command("finish")[1])
 		return self.check_state_after_move()
 

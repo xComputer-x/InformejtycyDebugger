@@ -14,7 +14,7 @@ from threading import Thread, Lock
 from flask import Flask, request
 from flask_socketio import SocketIO, emit
 from uuid import uuid4
-from typing import Callable
+from typing import Callable, Optional
 
 from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DEBUGDATA_TEMPLATE
 from compiler_manager import Compiler
@@ -167,10 +167,28 @@ def handle_debugging(data: dict[str: str]) -> None:
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 
 # Base for debugger actions handling functions
-def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dict[str: str]], None], data: dict[str: str]) -> None:
+def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dict[str: str]], None], data: dict[str: str], is_expecting_breakpoints: bool = True) -> None:
 	if not "authorization" in data:
-		emit("No authorization in request")
+		emit("debug_data", {"status": "No authorization in request!"})
 		return
+
+	if is_expecting_breakpoints:
+		if not "add_breakpoints" in data or not "remove_breakpoints" in data: emit("No breakpoints changes in request!"); return
+		if type(data["add_breakpoints"]) != list or type(data["add_breakpoints"]) != list: emit("Invalid breakpoints add/remove type!"); return
+		
+		for bpi in range(len(data["add_breakpoints"])): 
+			try:
+				data["add_breakpoints"][bpi] = int(data["add_breakpoints"][bpi])
+			except:
+				emit("debug_data", {"status": "Breakpoints changes should be integers!"})
+				return
+		
+		for bpi in range(len(data["remove_breakpoints"])):
+			try:
+				data["remove_breakpoints"][bpi] = int(data["remove_breakpoints"][bpi])
+			except:
+				emit("debug_data", {"status": "Breakpoints changes should be integers!"})
+				return
 
 	authorization = data["authorization"]
 	logger.spam(f"Client {what_client_did}, with authorization: {authorization}", from_)
@@ -180,7 +198,12 @@ def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dic
 			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
 			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", from_)
 		else:
-			output = getattr(app.config["debug_processes"][authorization], method_name)()
+			method = getattr(app.config["debug_processes"][authorization], method_name)
+			output: Optional[str] = None
+
+			if is_expecting_breakpoints: output = method(data["add_breakpoints"], data["remove_breakpoints"])
+			else: output = method()
+
 			if not output:
 				output = dict(DEBUGDATA_TEMPLATE)
 			output["status"] = "ok"
@@ -191,7 +214,7 @@ def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dic
 # Captures debug class ping. Used to keep debug class alive
 @socketio.on('ping')
 def handle_debug_ping(data: dict[str: str]) -> None:
-	debugger_action("pinged debugger class", "ping", handle_debug_ping, data)
+	debugger_action("pinged debugger class", "ping", handle_debug_ping, data, is_expecting_breakpoints=False)
 
 # Captures running debugged program
 @socketio.on("run")
@@ -216,7 +239,7 @@ def handle_finishing(data: dict[str: str]) -> None:
 # Captures debugging stop
 @socketio.on("stop")
 def handle_stopping(data: dict[str: str]) -> None:
-	debugger_action("requested stopping", "stop", handle_stopping, data)
+	debugger_action("requested stopping", "stop", handle_stopping, data, is_expecting_breakpoints=False)
 
 '''
 ================================================
