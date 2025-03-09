@@ -34,7 +34,7 @@ class GDBDebugger:
 			"skip -gfi /usr/include/*",
 			"skip -gfi /usr/include/c++/14/*",
 			"skip -gfi /usr/include/c++/14/bits/*",
-			"break *main" # tymczasowo ustawiany jest domyślnie breakpoint na main (dopóki Patryk nie zrobi ładnego GUI)
+			#"break *main" # tymczasowo ustawiany jest domyślnie breakpoint na main (dopóki Patryk nie zrobi ładnego GUI)
 		]
 
 		self.compiled_file_name = ""
@@ -190,43 +190,57 @@ class GDBDebugger:
 			self.stop()
 			return out
 
-		if program_output[0]["payload"] == "The program being debugged is not being run.\n":
-			out = dict(DEBUGDATA_TEMPLATE)
-			out["is_running"] = True
-			out["additional_gdb_information"] = f"Błąd GDB: należy uruchomić debugowany program, aby móc wykonywać inne komendy"
-			return out
-		
-		if program_output[0]["payload"] == "[Inferior 1 (process 14) exited normally]\n":
-			out = dict(DEBUGDATA_TEMPLATE)
-			out["is_running"] = False
-			self.stop()
-			return out
-		
-		if len(program_output) > 1 and program_output[1]["payload"].startswith(" received signal"):
-			out = dict(DEBUGDATA_TEMPLATE)
-			out["is_running"] = False
-			out["runtime_error"] = True
-			out["runtime_error_details"] = program_output[1]["payload"][len(" received signal "):-1]
-			self.stop()
-			return out
+		for output in program_output:
+			if output["payload"] == "The program being debugged is not being run.\n":
+				out = dict(DEBUGDATA_TEMPLATE)
+				out["is_running"] = True
+				out["additional_gdb_information"] = f"Błąd GDB: należy uruchomić debugowany program, aby móc wykonywać inne komendy"
+				return out
+			
+			if output["payload"] == "[Inferior 1 (process 14) exited normally]\n":
+				out = dict(DEBUGDATA_TEMPLATE)
+				out["is_running"] = False
+				self.stop()
+				return out
+			
+			if output["payload"].startswith(" received signal"):
+				out = dict(DEBUGDATA_TEMPLATE)
+				out["is_running"] = False
+				out["runtime_error"] = True
+				out["runtime_error_details"] = program_output[1]["payload"][len(" received signal "):-1]
+				self.stop()
+				return out
 
 		return_value = self.get_server_output_data()
 		return_value["is_running"] = True
 		return return_value
 
+	def change_breakpoints(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> list[int]:
+		for bp in add_breakpoints:
+			break_output = self.send_command(f"break {bp}")[1]
+			self.logger.spam(break_output, self.change_breakpoints)
+		
+		for bp in remove_breakpoints:
+			clear_output = self.send_command(f"clear {bp}")[1]
+			self.logger.spam(clear_output, self.change_breakpoints)
+
 	def step(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
+		self.change_breakpoints(add_breakpoints, remove_breakpoints)
 		self.send_command("step")
 		return self.check_state_after_move()
 
 	def run(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
+		self.change_breakpoints(add_breakpoints, remove_breakpoints)
 		self.send_command("run")
 		return self.check_state_after_move()
 	
 	def continue_(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
+		self.change_breakpoints(add_breakpoints, remove_breakpoints)
 		self.send_command("continue")
 		return self.check_state_after_move()
 
 	def finish(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
+		self.change_breakpoints(add_breakpoints, remove_breakpoints)
 		print(self.send_command("finish")[1])
 		return self.check_state_after_move()
 

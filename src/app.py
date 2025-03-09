@@ -31,7 +31,7 @@ CORS(app)
 # To nicely display messages
 sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
 sys.stderr.reconfigure(encoding='utf-8', line_buffering=True)
-logger = Logger(display_logs=True, display_layer=1)
+logger = Logger(display_logs=True, display_layer=0)
 
 # Make sure received directory exists
 os.makedirs(RECEIVED_DIR, exist_ok=True)

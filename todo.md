@@ -1,25 +1,26 @@
 # Lista TODO
 
-- [x] Uruchamianie procesu gdb
-- [x] Wysyłanie komend inicjujących
-- [x] Odsyłanie błędów kompilacji
-- [x] Odsyłanie aktualnej funkcji
-- [x] Odsyłanie aktualnej lini
-- [x] Odsyłanie zmiennych lokalnych
-- [x] Odsyłanie zmiennych globalnych
-- [x] Odsyłanie argumentów lokalnych
-- [x] Przechodzenie krok po kroku w kodzie (`step`)
-- [x] Uruchamianie programu (`run`)
-- [x] Kończenie funkcji (`finish`)
-- [x] Kontynuowanie kodu (`continue`)
-- [ ] Ustawianie i usuwanie breakpointów przed ruchem (ruch == `step`/`finish`/`next`/`continue`/`run`)
-- [ ] Odsyłanie wyjścia programu
-- [ ] Omijanie wchodzenia funkcji (`next`)
-- [x] Limit czasu na komendę
-- [x] Wychwytywanie błędów z sygnałami
-- [ ] Potencjalne błędy nie zaczynające się na `received signal` (??)
-- [x] Potencjalny błąd serwera przy zakończeniu debugowania (??)
-    - **Znaleziono problem!** Ruch bez upewnienia się, że kod został uruchomiony
-- [ ] Ładne formatowanie elementów structa
-- [ ] Wskaźniki do funkcji (`int (*wsk_do_main)(int, char*)`)
-- [ ] Zmienianie wartości zmiennych
+- [x] Uruchamianie procesu gdb;
+- [x] Wysyłanie komend inicjujących;
+- [x] Odsyłanie błędów kompilacji;
+- [x] Odsyłanie aktualnej funkcji;
+- [x] Odsyłanie aktualnej lini;
+- [x] Odsyłanie zmiennych lokalnych;
+- [x] Odsyłanie zmiennych globalnych;
+- [x] Odsyłanie argumentów lokalnych;
+- [x] Przechodzenie krok po kroku w kodzie (`step`);
+- [x] Uruchamianie programu (`run`);
+- [x] Kończenie funkcji (`finish`);
+- [x] Kontynuowanie kodu (`continue`);
+- [x] Ustawianie i usuwanie breakpointów przed ruchem (ruch == `step`/`finish`/`next`/`continue`/`run`);
+    - **UWAGA:** na ten moment demo debuggera nie wspiera ustawiania breakpointów, natomiast serwer je odbiera i ustawia bądź usuwa;
+- [ ] Odsyłanie wyjścia programu;
+- [ ] Omijanie wchodzenia funkcji (`next`);
+- [x] Limit czasu na komendę;
+- [x] Wychwytywanie błędów z sygnałami;
+- [ ] Potencjalne błędy nie zaczynające się na `received signal` (??);
+- [x] Potencjalny błąd serwera przy zakończeniu debugowania (??);
+    - **Znaleziono problem!** Ruch bez upewnienia się, że kod został uruchomiony;
+- [ ] Ładne formatowanie elementów structa;
+- [ ] Wskaźniki do funkcji (`int (*wsk_do_main)(int, char*)`);
+- [ ] Zmienianie wartości zmiennych;
