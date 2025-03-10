@@ -1,10 +1,10 @@
 import os
 import re
-import time
 import pexpect
 from typing import Optional, Any
 from pygdbmi.gdbmiparser import parse_response
 from uuid import uuid4
+from time import time
 
 import docker_response_status as DckStatus
 from compiler_manager import Compiler
@@ -25,7 +25,7 @@ class GDBDebugger:
 		self.gdb_printers_dir = gdb_printers_dir
 		self.input_file_name = input_file_name
 
-		self.last_ping_time: int = time.time() # time in seconds from the last time client pinged this class
+		self.last_ping_time: int = time() # time in seconds from the last time client pinged this class
 
 		self.gdb_init_input = [
 			"python import sys; sys.path.insert(0, '/usr/share/gcc-13/python')",
@@ -34,7 +34,11 @@ class GDBDebugger:
 			"skip -gfi /usr/include/*",
 			"skip -gfi /usr/include/c++/14/*",
 			"skip -gfi /usr/include/c++/14/bits/*",
-			#"break *main" # tymczasowo ustawiany jest domyślnie breakpoint na main (dopóki Patryk nie zrobi ładnego GUI)
+			# "skip -gfi /lib/gcc/x86_64-linux-gnu/14/include/*",
+			# "skip -gfi /lib/gcc/x86_64-linux-gnu/14/include/sanitizer/*",
+			# "skip -gfi /lib/gcc/x86_64-linux-gnu/14/*",
+			# "skip -gfi /lib/x86_64-linux-gnu/*",
+			"break *main",
 		]
 
 		self.compiled_file_name = ""
@@ -44,13 +48,12 @@ class GDBDebugger:
 
 		self.docker_manager = DockerManager(self.debug_dir, self.gdb_printers_dir)
 		self.has_been_initialized: bool = False # Was init_process run
-		self.has_been_run: bool = False # Was "run" command executed
 
 	def ping(self) -> None:
 		'''
 		Updates last time, the class was pinged.
 		'''
-		self.last_ping_time = time.time()
+		self.last_ping_time = time()
 	
 	def get_formatted_gdb_output(self, whole_output: bool = False) -> list[dict[str: Any]]:
 		outputs = []
@@ -63,6 +66,8 @@ class GDBDebugger:
 		return outputs
 	
 	def get_server_output_data(self) -> dict[str: Any]:
+		st = time()
+
 		frame_output = self.send_command("frame")[1][-2:]
 		frame_match = re.match(r".+\s+((.+::)+)*([a-zA-Z_0-9]+).*\s+\(.*\).+:(\d+)", frame_output[0]["payload"])
 		current_function = frame_match.group(3)
@@ -72,9 +77,17 @@ class GDBDebugger:
 		whatis_match = re.match(r".+=\s+(.+)\s+\(.+", whatis_output[0]["payload"])
 		current_function_return_type = whatis_match.group(1)
 
+		self.logger.error(f"gr1: {time()-st}", self.get_server_output_data)
+
+		st = time()
 		global_variables = self.get_global_variables()
+		self.logger.error(f"gr2: {time()-st}", self.get_server_output_data)
+		st = time()
 		local_variables = self.get_local_variables()
+		self.logger.error(f"gr3: {time()-st}", self.get_server_output_data)
+		st = time()
 		local_arguments = self.get_local_arguments()
+		self.logger.error(f"gr4: {time()-st}", self.get_server_output_data)
 
 		self.logger.info(f"Global variables: {global_variables}", self.get_server_output_data)
 		self.logger.info(f"Local variables: {local_variables}", self.get_server_output_data)
@@ -229,8 +242,7 @@ class GDBDebugger:
 		self.send_command("step")
 		return self.check_state_after_move()
 
-	def run(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
-		self.change_breakpoints(add_breakpoints, remove_breakpoints)
+	def run(self) -> dict[str: Any]:
 		self.send_command("run")
 		return self.check_state_after_move()
 	
@@ -318,7 +330,7 @@ class GDBDebugger:
 		self.logger.debug(f"Sending initalizing commands", self.init_process)
 		for command in self.gdb_init_input:
 			self.logger.spam(self.send_command(command)[1], self.init_process)
-		
+
 		self.has_been_initialized = True
 
 		return (0, bytes())

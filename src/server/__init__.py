@@ -17,6 +17,11 @@ DEBUGGER_TIMEOUT: int = 5 # After what time will pexpect timeout
 EXPECT_VALUES_AFTER_GDB_COMMAND: list[str] = ["^done", "^error", "^running", "^connected", "^exit"] # What pexpect should expect from GDB MI send after command
 CGROUP_NAME: str = "informejtycy_debugger.slice" # Name of the cgroup
 
+INIT_DATA_TEMPLATE: dict[str: str | bool] = {
+    "compilation_error": False,
+    "compilation_error_details": "",
+    "authorization": ""
+}
 DEBUGDATA_TEMPLATE: dict[str: Any] = { # (aka. "debug_data") What server sends back after every command
     "is_running": True,
     "timeout": False,

@@ -16,7 +16,7 @@ from flask_socketio import SocketIO, emit
 from uuid import uuid4
 from typing import Callable, Optional
 
-from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DEBUGDATA_TEMPLATE
+from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DEBUGDATA_TEMPLATE, INIT_DATA_TEMPLATE
 from compiler_manager import Compiler
 from gdb_manager import GDBDebugger
 from logger import Logger
@@ -62,7 +62,7 @@ def clean_unused_debug_processes() -> None:
 		eventlet.sleep(CLEANING_UNUSED_DBG_PROCESSES_TIME)
 		with debug_processes_lock:
 			for auth in dict(app.config["debug_processes"]): # dict(...) to make copy
-				if not app.config["debug_processes"][auth].has_been_run: # when debug process container is still building
+				if not app.config["debug_processes"][auth].has_been_initialized: # when debug process container is still building
 					app.config["debug_processes"][auth].ping()
 
 				elif (time.time() - app.config["debug_processes"][auth].last_ping_time >= RECEIVE_DEBUG_PING_TIME	# Not pinged for long enough
@@ -148,23 +148,26 @@ def handle_debugging(data: dict[str: str]) -> None:
 	app.config["debug_processes"][auth] = debugger_class
 	run_exit_code, stdout = debugger_class.init_process(data["input"])
 
-	data_to_be_sent: dict[str: str | bool] = dict(DEBUGDATA_TEMPLATE)
+	data_to_be_sent: dict[str: str | bool] = dict(INIT_DATA_TEMPLATE)
 
 	if run_exit_code == -1:
 		data_to_be_sent["compilation_error"] = True
 		data_to_be_sent["compilation_error_details"] = stdout.decode("utf-8")
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" (with compilation_error) to {request.sid}", handle_debugging)
-
 	elif run_exit_code == -2:
 		data_to_be_sent = {}
 		emit("stopped_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"stopped_debugging\" to {request.sid}", handle_debugging)
-
 	else:
 		data_to_be_sent["authorization"] = auth
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
+	
+		debug_data = debugger_class.run()
+		debug_data["status"] = "ok"
+		emit("debug_data", debug_data)
+		logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_debugging)
 
 # Base for debugger actions handling functions
 def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dict[str: str]], None], data: dict[str: str], is_expecting_breakpoints: bool = True) -> None:
@@ -205,7 +208,7 @@ def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dic
 			else: output = method()
 
 			if not output:
-				output = dict(DEBUGDATA_TEMPLATE)
+				output = {}
 			output["status"] = "ok"
 
 			emit("debug_data", output)
@@ -214,12 +217,22 @@ def debugger_action(what_client_did: str, method_name: str, from_: Callable[[dic
 # Captures debug class ping. Used to keep debug class alive
 @socketio.on('ping')
 def handle_debug_ping(data: dict[str: str]) -> None:
-	debugger_action("pinged debugger class", "ping", handle_debug_ping, data, is_expecting_breakpoints=False)
+	if not "authorization" in data:
+		emit("debug_data", {"status": "No authorization in request!"})
+		return
 
-# Captures running debugged program
-@socketio.on("run")
-def handle_running(data: dict[str: str]) -> None:
-	debugger_action("requested running debugged code", "run", handle_running, data)
+	authorization = data["authorization"]
+	logger.spam(f"Client pinged debugger class, with authorization: {authorization}", handle_debug_ping)
+
+	with debug_processes_lock:
+		if not check_if_process_alive(authorization):
+			emit("debug_data", {"status": "invalid authorization (or process might have been stopped)"})
+			logger.spam(f"Emitted \"debug_data\" (with invalid authorization) to {request.sid}", handle_debug_ping)
+		else:
+			app.config["debug_processes"][authorization].ping()
+
+			emit("pong", {"status": "ok"})
+			logger.spam(f"Emitted \"pong\" to {request.sid}", handle_debug_ping)
 
 # Captures continuing execution
 @socketio.on("continue")
