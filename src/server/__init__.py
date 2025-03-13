@@ -20,7 +20,8 @@ CGROUP_NAME: str = "informejtycy_debugger.slice" # Name of the cgroup
 INIT_DATA_TEMPLATE: dict[str: str | bool] = {
     "compilation_error": False,
     "compilation_error_details": "",
-    "authorization": ""
+    "authorization": "",
+    "status": "ok"
 }
 DEBUGDATA_TEMPLATE: dict[str: Any] = { # (aka. "debug_data") What server sends back after every command
     "is_running": True,
@@ -32,6 +33,7 @@ DEBUGDATA_TEMPLATE: dict[str: Any] = { # (aka. "debug_data") What server sends b
     "line": 0,
     "global_variables": [],
     "local_variables": [],
-    "arguments": []
+    "arguments": [],
+    "stdout": []
 }
 # If custom javascript is used, then "additional_gdb_information" might be also present

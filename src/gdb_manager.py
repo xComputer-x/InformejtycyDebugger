@@ -17,28 +17,26 @@ class GDBDebugger:
 	Class for managing debug process (gdb).
 	'''
 
-	def __init__(self, logger: Logger, compiler: Compiler, debug_dir: str, gdb_printers_dir: str, input_file_name: str) -> None:
+	def __init__(self, logger: Logger, compiler: Compiler, debug_dir: str, gdb_printers_dir: str, input_file_name: str, ip: str) -> None:
 		self.logger = logger
 		self.compiler = compiler
 		self.received_dir = self.compiler.input_dir
 		self.debug_dir = debug_dir
 		self.gdb_printers_dir = gdb_printers_dir
 		self.input_file_name = input_file_name
+		self.ip = ip
 
 		self.last_ping_time: int = time() # time in seconds from the last time client pinged this class
 
 		self.gdb_init_input = [
-			"python import sys; sys.path.insert(0, '/usr/share/gcc-13/python')",
+			"python import sys; sys.path.insert(0, '/usr/share/gcc/13/python')",
 			"python from libstdcxx.v6.printers import register_libstdcxx_printers",
 			"python register_libstdcxx_printers(None)",
 			"skip -gfi /usr/include/*",
 			"skip -gfi /usr/include/c++/14/*",
 			"skip -gfi /usr/include/c++/14/bits/*",
-			# "skip -gfi /lib/gcc/x86_64-linux-gnu/14/include/*",
-			# "skip -gfi /lib/gcc/x86_64-linux-gnu/14/include/sanitizer/*",
-			# "skip -gfi /lib/gcc/x86_64-linux-gnu/14/*",
-			# "skip -gfi /lib/x86_64-linux-gnu/*",
 			"break *main",
+			"run"
 		]
 
 		self.compiled_file_name = ""
@@ -55,19 +53,20 @@ class GDBDebugger:
 		'''
 		self.last_ping_time = time()
 	
-	def get_formatted_gdb_output(self, whole_output: bool = False) -> list[dict[str: Any]]:
+	def get_formatted_gdb_output(self, whole_output: bool = False, catch_stdout: bool = False) -> tuple[list[dict[str:Any]], list[dict[str: Any]]]:
 		outputs = []
+		program_stdout = []
 		for line in self.process.before.split('\n'):
 			output = parse_response(line)
 			if not whole_output and output["type"] == "console":
 				outputs.append(output)
+			elif catch_stdout and output["type"] == "output":
+				program_stdout.append(output)
 			elif whole_output:
 				outputs.append(output)
-		return outputs
+		return (outputs, program_stdout)
 	
 	def get_server_output_data(self) -> dict[str: Any]:
-		st = time()
-
 		frame_output = self.send_command("frame")[1][-2:]
 		frame_match = re.match(r".+\s+((.+::)+)*([a-zA-Z_0-9]+).*\s+\(.*\).+:(\d+)", frame_output[0]["payload"])
 		current_function = frame_match.group(3)
@@ -77,17 +76,9 @@ class GDBDebugger:
 		whatis_match = re.match(r".+=\s+(.+)\s+\(.+", whatis_output[0]["payload"])
 		current_function_return_type = whatis_match.group(1)
 
-		self.logger.error(f"gr1: {time()-st}", self.get_server_output_data)
-
-		st = time()
 		global_variables = self.get_global_variables()
-		self.logger.error(f"gr2: {time()-st}", self.get_server_output_data)
-		st = time()
 		local_variables = self.get_local_variables()
-		self.logger.error(f"gr3: {time()-st}", self.get_server_output_data)
-		st = time()
 		local_arguments = self.get_local_arguments()
-		self.logger.error(f"gr4: {time()-st}", self.get_server_output_data)
 
 		self.logger.info(f"Global variables: {global_variables}", self.get_server_output_data)
 		self.logger.info(f"Local variables: {local_variables}", self.get_server_output_data)
@@ -193,7 +184,7 @@ class GDBDebugger:
 		
 		return {"variable_supported": False, "variable_type": "", "variable_name": "", "variable_value": "", "amount_of_values": ""}
 
-	def check_state_after_move(self) -> dict[str: Any]:
+	def check_state_after_move(self, program_stdout: list[dict[str: Any]]) -> dict[str: Any]:
 		status, program_output = self.send_command("info program")
 
 		if status == "timeout":
@@ -226,6 +217,7 @@ class GDBDebugger:
 
 		return_value = self.get_server_output_data()
 		return_value["is_running"] = True
+		return_value["stdout"] = program_stdout
 		return return_value
 
 	def change_breakpoints(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> list[int]:
@@ -239,24 +231,24 @@ class GDBDebugger:
 
 	def step(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
 		self.change_breakpoints(add_breakpoints, remove_breakpoints)
-		self.send_command("step")
-		return self.check_state_after_move()
+		program_stdout = self.send_command("step", catch_stdout=True)[2]
+		return self.check_state_after_move(program_stdout)
 
 	def run(self) -> dict[str: Any]:
-		self.send_command("run")
-		return self.check_state_after_move()
+		program_stdout = self.send_command("run", catch_stdout=True)[2]
+		return self.check_state_after_move(program_stdout)
 	
 	def continue_(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
 		self.change_breakpoints(add_breakpoints, remove_breakpoints)
-		self.send_command("continue")
-		return self.check_state_after_move()
+		program_stdout = self.send_command("continue", catch_stdout=True)[2]
+		return self.check_state_after_move(program_stdout)
 
 	def finish(self, add_breakpoints: list[int], remove_breakpoints: list[int]) -> dict[str: Any]:
 		self.change_breakpoints(add_breakpoints, remove_breakpoints)
-		print(self.send_command("finish")[1])
-		return self.check_state_after_move()
+		program_stdout = self.send_command("finish", catch_stdout=True)[2]
+		return self.check_state_after_move(program_stdout)
 
-	def send_command(self, command: str, whole_output: bool = False) -> tuple[str, list[dict[str: Any]]]:	
+	def send_command(self, command: str, whole_output: bool = False, catch_stdout: bool = False) -> tuple[str, list[dict[str: Any]]] | tuple[str, list[dict[str: Any]], list[dict[str: Any]]]:	
 		'''
 		Executes gdb command.
 		:param command: command, to be executed
@@ -283,7 +275,17 @@ class GDBDebugger:
 		except Exception as e:
 			self.logger.alert(f"Couldn't send {command} command to gdb process | {e.__class__.__name__}: {e}", self.send_command)
 
-		return (which_response, self.get_formatted_gdb_output(whole_output))
+		formatted_output, program_stdout = self.get_formatted_gdb_output(whole_output, catch_stdout)
+		if catch_stdout:
+			return (which_response, formatted_output, program_stdout)
+		return (which_response, formatted_output)
+
+	def send_initializing_commands(self, commands: list[str]) -> None:
+		self.logger.debug(f"Sending initalizing commands", self.init_process)
+		for command in commands:
+			if commands == "run": self.process.sendline(f"run < {self.stdin_input_file}")
+			else: self.process.sendline(command)
+		self.process.expect_exact("^running")
 
 	def init_process(self, input_: str) -> tuple[int, bytes]:
 		'''
@@ -327,9 +329,7 @@ class GDBDebugger:
 			self.logger.spam(self.process.before, self.init_process)
 			self.logger.alert("Starting went wrong...", self.init_process)
 
-		self.logger.debug(f"Sending initalizing commands", self.init_process)
-		for command in self.gdb_init_input:
-			self.logger.spam(self.send_command(command)[1], self.init_process)
+		self.send_initializing_commands(self.gdb_init_input)
 
 		self.has_been_initialized = True
 

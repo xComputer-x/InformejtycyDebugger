@@ -41,8 +41,6 @@ class DockerManager():
 			f"COPY {stdin_file_name} /app/{stdin_file_name}",
 			f"WORKDIR app",
 			f"RUN chown appuser:appgroup /app/a.out",												# User is owner of this executable
-			f"RUN chown appuser:appgroup /app/received/{source_file_name}",							# User is owner of source code
-			f"RUN chown appuser:appgroup /app/{stdin_file_name}",									# User is owner of stdin file
 			f"RUN chmod 700 /app/a.out",															# Permissions
 			f"USER appuser",																		# Set current user to created user
 		])

@@ -139,12 +139,19 @@ def handle_debugging(data: dict[str: str]) -> None:
 		emit("No code and/or input in request")
 		return
 	
+	client_ip = request.access_route[0] if request.access_route else request.remote_addr
+	with debug_processes_lock:
+		for dbg in app.config["debug_processes"]:
+			if app.config["debug_processes"][dbg].ip == client_ip:
+				emit("started_debugging", {"status": "There is already registered debug process on your IP. If you belive this is a mistake, wait a few minutes and try again!"})
+				return
+
 	logger.debug(f"Client requested debugging: {request.sid}", handle_debugging)
 	logger.debug(f"Data: {data}", handle_debugging)
 
 	file_name, auth = make_cpp_file_for_debugger(data["code"])
 
-	debugger_class = GDBDebugger(logger, compiler, DEBUG_DIR, GDB_PRINTERS_DIR, file_name)
+	debugger_class = GDBDebugger(logger, compiler, DEBUG_DIR, GDB_PRINTERS_DIR, file_name, client_ip)
 	app.config["debug_processes"][auth] = debugger_class
 	run_exit_code, stdout = debugger_class.init_process(data["input"])
 
@@ -156,15 +163,14 @@ def handle_debugging(data: dict[str: str]) -> None:
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" (with compilation_error) to {request.sid}", handle_debugging)
 	elif run_exit_code == -2:
-		data_to_be_sent = {}
-		emit("stopped_debugging", data_to_be_sent)
-		logger.spam(f"Emitted \"stopped_debugging\" to {request.sid}", handle_debugging)
+		emit("started_debugging", {"status": "Server couldn't build your program! Please send your code to us (kontakt@informejtycy.pl)"})
+		logger.spam(f"Emitted \"started_debugging\" (not ok status) to {request.sid}", handle_debugging)
 	else:
 		data_to_be_sent["authorization"] = auth
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 	
-		debug_data = debugger_class.run()
+		debug_data = debugger_class.get_server_output_data()
 		debug_data["status"] = "ok"
 		emit("debug_data", debug_data)
 		logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_debugging)

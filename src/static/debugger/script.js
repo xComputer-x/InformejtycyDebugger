@@ -60,9 +60,12 @@ socket.on("started_debugging", async (data) => {
         turn_gui_back_from_debugging();
         document.getElementById("status").textContent = "błąd kompilacji! Przerywanie debugowania! ";
         document.getElementById("statusDetails").textContent = data.compilation_error_details;
+    } else if (data.status != "ok") {
+        document.getElementById("status").textContent = "Coś poszło nie tak...";
+        document.getElementById("statusDetails").textContent = data.status;
     } else {
         await turn_gui_into_debugging();
-        document.getElementById("status").textContent = "Sukces! Serwer uruchomił debugger. Aby rozpocząć debugowanie, wybierz punkty przerwania kodu (breakpointy), a następnie naciśnij przycisk \"Uruchom\"";
+        document.getElementById("status").textContent = "Sukces! Serwer uruchomił debugger";
         document.getElementById("statusDetails").textContent = "";
 
         auth = data.authorization;
