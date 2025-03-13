@@ -32,17 +32,17 @@ class DockerManager():
 			f"FROM debian:sid",
 			f"RUN apt-get update -y && apt-get upgrade -y",
 			f"RUN apt install -y gdb",
-			f"RUN mkdir -p app/received",															# Make work directory
-			f"RUN groupadd --system appgroup && useradd --system --no-create-home --gid appgroup appuser",							# Make user without root permissions
-			f"RUN mkdir -p /usr/share/gcc/13/python/libstdcxx/v6/",									# Making directory for printers.py (gdb pretty print)
-			f"COPY ./printers.py /usr/share/gcc/13/python/libstdcxx/v6/printers.py", 					# Copying printers.py
-			f"COPY {executable_file_name} /app/a.out",												# Copying executable .out
-			f"COPY {source_file_name} /app/received/{source_file_name}", 							# Copying source .cpp
-			f"COPY {stdin_file_name} /app/{stdin_file_name}",
-			f"WORKDIR app",
-			f"RUN chown appuser:appgroup /app/a.out",												# User is owner of this executable
-			f"RUN chmod 700 /app/a.out",															# Permissions
-			f"USER appuser",																		# Set current user to created user
+			f"RUN mkdir -p app/received",																	# Make work directory
+			f"RUN groupadd --system appgroup && useradd --system --no-create-home --gid appgroup appuser",	# Make user without root permissions
+			f"RUN mkdir -p /usr/share/gcc/13/python/libstdcxx/v6/",											# Making directory for printers.py (gdb pretty print)
+			f"COPY ./printers.py /usr/share/gcc/13/python/libstdcxx/v6/printers.py", 						# Copying printers.py
+			f"COPY {executable_file_name} /app/a.out",														# Copying executable .out
+			f"COPY {source_file_name} /app/received/{source_file_name}", 									# Copying source .cpp
+			f"COPY {stdin_file_name} /app/{stdin_file_name}",												# Copy file contianing stdin of debugged program
+			f"WORKDIR app",																					# Set working directory of container
+			f"RUN chown appuser:appgroup /app/a.out",														# User is owner of this executable
+			f"RUN chmod 700 /app/a.out",																	# Permissions
+			f"USER appuser",																				# Set current user to created user
 		])
 
 		status = ""
