@@ -148,12 +148,12 @@ document.getElementById("debugStart").addEventListener("click", async () => {
 
 // Listens for stepping
 document.getElementById("krokDoPrzodu").addEventListener("click", async () => {
-    await socket.emit("step", {authorization: authorization, add_breakpoints: [], remove_breakpoints: [8]});
+    await socket.emit("step", {authorization: authorization, add_breakpoints: [18], remove_breakpoints: [8]});
 })
 
 // Listens for continuing
 document.getElementById("kontynuujWykonanie").addEventListener("click", async () => {
-    await socket.emit("continue", {authorization: authorization, add_breakpoints: [], remove_breakpoints: []});
+    await socket.emit("continue", {authorization: authorization, add_breakpoints: [21], remove_breakpoints: []});
 })
 
 // Listen for finishing

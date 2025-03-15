@@ -7,6 +7,7 @@ PORT: int = 5000 # Port on which server will be run (only for testing, later uni
 RECEIVED_DIR: str = "./received" # Directory for checker result files (old)
 DEBUG_DIR: str = "./received" # Directory for debug files
 GDB_PRINTERS_DIR: str = "./gdb_printer" # Directory to printers.py used for pprint in gdb
+DATA_EXTRACTOR_DIR: str = "./data_extractor" # Directory to main.py used for extracting debug data
 SECRET_KEY: str = "gEe_5+aBG6;{4#X[bK^]k!w,mCLU-Mr" # Secret key used by flask_socketio for security
 RECEIVE_DEBUG_PING_TIME: int = 15 # After what time will not pinged Debugger class be deleted
 CLEANING_UNUSED_DBG_PROCESSES_TIME: int = 1 # How often should Debugger classes be checked for possible cleaning
@@ -16,24 +17,12 @@ DEBUGGER_CPU_LIMIT: float = 0.3 # How much percent of CPU can a container use
 DEBUGGER_TIMEOUT: int = 5 # After what time will pexpect timeout
 EXPECT_VALUES_AFTER_GDB_COMMAND: list[str] = ["^done", "^error", "^running", "^connected", "^exit"] # What pexpect should expect from GDB MI send after command
 CGROUP_NAME: str = "informejtycy_debugger.slice" # Name of the cgroup
+COMPILATION_TIMEOUT: int = 8 # How long can program compile
 
 INIT_DATA_TEMPLATE: dict[str: str | bool] = {
     "compilation_error": False,
     "compilation_error_details": "",
     "authorization": "",
     "status": "ok"
-}
-DEBUGDATA_TEMPLATE: dict[str: Any] = { # (aka. "debug_data") What server sends back after every command
-    "is_running": True,
-    "timeout": False,
-    "runtime_error": False,
-    "runtime_error_details": "",
-    "function": "",
-    "function_return_type": "",
-    "line": 0,
-    "global_variables": [],
-    "local_variables": [],
-    "arguments": [],
-    "stdout": []
 }
 # If custom javascript is used, then "additional_gdb_information" might be also present

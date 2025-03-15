@@ -3,7 +3,7 @@ import subprocess
 from os.path import join
 
 from logger import Logger
-from server import MAX_COMPILATION_ERROR_MESSAGE_LENGTH
+from server import MAX_COMPILATION_ERROR_MESSAGE_LENGTH, COMPILATION_TIMEOUT
 
 '''
 This function shortens compilation errors (C++ standard library errors suck)
@@ -50,9 +50,11 @@ class Compiler:
 		stdout = bytes()
 
 		try:
-			stdout = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stderr
+			stdout = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=COMPILATION_TIMEOUT).stderr
 			stdout = shorten_bytes(stdout)
 		except FileNotFoundError:
 			self.logger.alert(f"{self.compiler} compiler is not installed!", self.compile)
+		except subprocess.TimeoutExpired:
+			stdout = b"Your program must compile under %b seconds!" % str(COMPILATION_TIMEOUT).encode("ascii")
 
 		return (target_filename, stdout)

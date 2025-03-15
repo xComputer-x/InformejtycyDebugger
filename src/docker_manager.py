@@ -9,9 +9,10 @@ from server import DEBUGGER_TIMEOUT, DEBUGGER_CPU_LIMIT, CGROUP_NAME
 
 class DockerManager():
 	
-	def __init__(self, debug_dir: str, gdb_printers_dir: str) -> None:
+	def __init__(self, debug_dir: str, gdb_printers_dir: str, data_extractor_dir: str) -> None:
 		self.debug_dir = debug_dir
 		self.gdb_printers_dir = gdb_printers_dir
+		self.data_extractor_dir = data_extractor_dir
 		
 		self.debug_image_name = "informejtycy_debugger"
 	
@@ -20,10 +21,11 @@ class DockerManager():
 	'''
 
 	def build_for_debugger(self, executable_file_name: str, source_file_name: str, stdin_file_name: str) -> tuple[str, bytes]:
-		try:
-			stdout = subprocess.check_output(["cp", f"{self.gdb_printers_dir}/printers.py", self.debug_dir])
-		except:
-			return (DckStatus.internal_docker_manager_error, b"")
+		try: stdout = subprocess.check_output(["cp", f"{self.gdb_printers_dir}/printers.py", self.debug_dir])
+		except: return (DckStatus.internal_docker_manager_error, b"")
+
+		try: stdout = subprocess.check_output(["cp", f"{self.data_extractor_dir}/main.py", f"{self.debug_dir}/data_extractor.py"])
+		except: return (DckStatus.internal_docker_manager_error, b"")
 
 		self.clear_images()
 
@@ -36,11 +38,14 @@ class DockerManager():
 			f"RUN groupadd --system appgroup && useradd --system --no-create-home --gid appgroup appuser",	# Make user without root permissions
 			f"RUN mkdir -p /usr/share/gcc/13/python/libstdcxx/v6/",											# Making directory for printers.py (gdb pretty print)
 			f"COPY ./printers.py /usr/share/gcc/13/python/libstdcxx/v6/printers.py", 						# Copying printers.py
+			f"COPY ./data_extractor.py /app/data_extractor.py",						 						# Copying printers.py
+			f"RUN touch /tmp/output",
 			f"COPY {executable_file_name} /app/a.out",														# Copying executable .out
 			f"COPY {source_file_name} /app/received/{source_file_name}", 									# Copying source .cpp
-			f"COPY {stdin_file_name} /app/{stdin_file_name}",												# Copy file contianing stdin of debugged program
+			f"COPY {stdin_file_name} /app/input",															# Copy file contianing stdin of debugged program
 			f"WORKDIR app",																					# Set working directory of container
 			f"RUN chown appuser:appgroup /app/a.out",														# User is owner of this executable
+			f"RUN chown appuser:appgroup /tmp/output",														# User is owner of this executable
 			f"RUN chmod 700 /app/a.out",																	# Permissions
 			f"USER appuser",																				# Set current user to created user
 		])
@@ -62,7 +67,7 @@ class DockerManager():
 		return (status, stdout)
 
 	def run_for_debugger(self, container_name: str, memory_limit_MB: int) -> pexpect.spawnu:
-		process = pexpect.spawnu("docker", ["run", "--rm", "--cap-drop=ALL", "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined", "--memory-swap=256m", "--read-only", "-v", "/tmp/tmp", f"--cgroup-parent={CGROUP_NAME}", f"--cpus={DEBUGGER_CPU_LIMIT}", "--network=none", "--memory", f"{memory_limit_MB}m", "--name", container_name, "-i", self.debug_image_name, "gdb", "./a.out", "--interpreter=mi3", "--quiet"], timeout=DEBUGGER_TIMEOUT)
+		process = pexpect.spawnu("docker", ["run", "--rm", "--cap-drop=ALL", "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined", "--memory-swap=256m", "--read-only", "--tmpfs", "/tmp", f"--cgroup-parent={CGROUP_NAME}", f"--cpus={DEBUGGER_CPU_LIMIT}", "--network=none", "--memory", f"{memory_limit_MB}m", "--name", container_name, "-i", self.debug_image_name, "gdb", "./a.out", "--interpreter=mi3", "--quiet"], timeout=DEBUGGER_TIMEOUT)
 
 		return process
 

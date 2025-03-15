@@ -16,7 +16,7 @@ from flask_socketio import SocketIO, emit
 from uuid import uuid4
 from typing import Callable, Optional
 
-from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DEBUGDATA_TEMPLATE, INIT_DATA_TEMPLATE
+from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DATA_EXTRACTOR_DIR, INIT_DATA_TEMPLATE
 from compiler_manager import Compiler
 from gdb_manager import GDBDebugger
 from logger import Logger
@@ -143,7 +143,7 @@ def handle_debugging(data: dict[str: str]) -> None:
 	with debug_processes_lock:
 		for dbg in app.config["debug_processes"]:
 			if app.config["debug_processes"][dbg].ip == client_ip:
-				emit("started_debugging", {"status": "There is already registered debug process on your IP. If you belive this is a mistake, wait a few minutes and try again!"})
+				emit("started_debugging", {"status": "There is already registered debug process on your IP. If you belive this is a mistake or have just closed debug process, please try again after 30 seconds"})
 				return
 
 	logger.debug(f"Client requested debugging: {request.sid}", handle_debugging)
@@ -151,7 +151,7 @@ def handle_debugging(data: dict[str: str]) -> None:
 
 	file_name, auth = make_cpp_file_for_debugger(data["code"])
 
-	debugger_class = GDBDebugger(logger, compiler, DEBUG_DIR, GDB_PRINTERS_DIR, file_name, client_ip)
+	debugger_class = GDBDebugger(logger, compiler, DEBUG_DIR, GDB_PRINTERS_DIR, DATA_EXTRACTOR_DIR, file_name, client_ip)
 	app.config["debug_processes"][auth] = debugger_class
 	run_exit_code, stdout = debugger_class.init_process(data["input"])
 
@@ -170,7 +170,7 @@ def handle_debugging(data: dict[str: str]) -> None:
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" to {request.sid}", handle_debugging)
 	
-		debug_data = debugger_class.get_server_output_data()
+		debug_data = debugger_class.check_state_after_move()
 		debug_data["status"] = "ok"
 		emit("debug_data", debug_data)
 		logger.spam(f"Emitted \"debug_data\" to {request.sid}", handle_debugging)
