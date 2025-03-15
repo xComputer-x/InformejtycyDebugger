@@ -1,0 +1,1 @@
+using a=unsigned long long;using c=a;template<a b, c d>class e{};using f=c;using h=f;template<f g, h i>constexpr void j(){if constexpr(g==i){++e<g,i>{};return;}j<g,(g+i)/2>();j<(g+i)/2,i>();}int main(){j<0,0xffffffffffffffffllu>();}
