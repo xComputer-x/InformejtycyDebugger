@@ -39,7 +39,7 @@ def main() -> dict[str: Any]:
 	
 	if not gdb.selected_thread():
 		debug_data["is_running"] = False
-		return
+		return debug_data
 	
 	frame = gdb.selected_frame()
 	block = frame.block()

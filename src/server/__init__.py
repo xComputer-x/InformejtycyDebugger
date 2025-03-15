@@ -18,6 +18,8 @@ DEBUGGER_TIMEOUT: int = 5 # After what time will pexpect timeout
 EXPECT_VALUES_AFTER_GDB_COMMAND: list[str] = ["^done", "^error", "^running", "^connected", "^exit"] # What pexpect should expect from GDB MI send after command
 CGROUP_NAME: str = "informejtycy_debugger.slice" # Name of the cgroup
 COMPILATION_TIMEOUT: int = 8 # How long can program compile
+MAX_CODE_SIZE: int = 5500 # Maximum size of code sent
+DOCKER_IMAGE_BUILD_TIMEOUT: int = 2 # How long can docker image build
 
 INIT_DATA_TEMPLATE: dict[str: str | bool] = {
     "compilation_error": False,

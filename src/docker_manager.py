@@ -2,10 +2,9 @@ from __future__ import unicode_literals
 
 import pexpect
 import subprocess
-from uuid import uuid4
 
 import docker_response_status as DckStatus
-from server import DEBUGGER_TIMEOUT, DEBUGGER_CPU_LIMIT, CGROUP_NAME
+from server import DEBUGGER_TIMEOUT, DEBUGGER_CPU_LIMIT, CGROUP_NAME, DOCKER_IMAGE_BUILD_TIMEOUT
 
 class DockerManager():
 	
@@ -57,7 +56,7 @@ class DockerManager():
 			f.write(content)
 
 		try:
-			stdout = subprocess.check_output(["docker", "build", "-t", self.debug_image_name, self.debug_dir], stderr=subprocess.STDOUT)
+			stdout = subprocess.check_output(["docker", "build", "-t", self.debug_image_name, self.debug_dir], stderr=subprocess.STDOUT, timeout=DOCKER_IMAGE_BUILD_TIMEOUT)
 			status = DckStatus.success
 		except FileNotFoundError:
 			status = DckStatus.internal_docker_manager_error

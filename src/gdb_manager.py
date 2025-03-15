@@ -64,7 +64,8 @@ class GDBDebugger:
 	def check_state_after_move(self) -> dict[str: Any]:
 		status, program_output = self.send_command("info program")
 
-		out = ast.literal_eval(self.send_command("source data_extractor.py")[1][0]["payload"])
+		response = self.send_command("source data_extractor.py")[1][0]["payload"]
+		out = ast.literal_eval(response)
 
 		if status == "timeout":
 			out["is_running"] = False

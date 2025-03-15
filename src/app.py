@@ -16,7 +16,7 @@ from flask_socketio import SocketIO, emit
 from uuid import uuid4
 from typing import Callable, Optional
 
-from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DATA_EXTRACTOR_DIR, INIT_DATA_TEMPLATE
+from server import IP, PORT, RECEIVED_DIR, DEBUG_DIR, GDB_PRINTERS_DIR, SECRET_KEY, RECEIVE_DEBUG_PING_TIME, CLEANING_UNUSED_DBG_PROCESSES_TIME, DATA_EXTRACTOR_DIR, INIT_DATA_TEMPLATE, MAX_CODE_SIZE
 from compiler_manager import Compiler
 from gdb_manager import GDBDebugger
 from logger import Logger
@@ -136,7 +136,10 @@ def handle_disconnect() -> None:
 @socketio.on('start_debugging')
 def handle_debugging(data: dict[str: str]) -> None:
 	if not "code" in data or not "input" in data:
-		emit("No code and/or input in request")
+		emit("started_debugging", {"status": "No code and/or input in request."})
+		return
+	elif len(data["code"]) > MAX_CODE_SIZE:
+		emit("started_debugging", {"status": "Requested code is too big (max_bytes=5500)."})
 		return
 	
 	client_ip = request.access_route[0] if request.access_route else request.remote_addr
@@ -163,7 +166,7 @@ def handle_debugging(data: dict[str: str]) -> None:
 		emit("started_debugging", data_to_be_sent)
 		logger.spam(f"Emitted \"start_debugging\" (with compilation_error) to {request.sid}", handle_debugging)
 	elif run_exit_code == -2:
-		emit("started_debugging", {"status": "Server couldn't build your program! Please send your code to us (kontakt@informejtycy.pl)"})
+		emit("started_debugging", {"status": "Server couldn't build your program!\nCommon reason: compiled file was too big!\nIf you belive this is a mistake, please send your code to us (kontakt@informejtycy.pl)"})
 		logger.spam(f"Emitted \"started_debugging\" (not ok status) to {request.sid}", handle_debugging)
 	else:
 		data_to_be_sent["authorization"] = auth
