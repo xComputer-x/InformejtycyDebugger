@@ -3,11 +3,11 @@
 from typing import Any
 
 IP: str = "127.0.0.1" # IP on which server will be run (only for testing, later unicorn affects this value)
-PORT: int = 5000 # Port on which server will be run (only for testing, later unicorn affects this value)
-RECEIVED_DIR: str = "./received" # Directory for checker result files (old)
-DEBUG_DIR: str = "./received" # Directory for debug files
-GDB_PRINTERS_DIR: str = "./gdb_printer" # Directory to printers.py used for pprint in gdb
-DATA_EXTRACTOR_DIR: str = "./data_extractor" # Directory to main.py used for extracting debug data
+PORT: int = 5001 # Port on which server will be run (only for testing, later unicorn affects this value)
+RECEIVED_DIR: str = "../received" # Directory for checker result files (old)
+DEBUG_DIR: str = "../received" # Directory for debug files
+GDB_PRINTERS_DIR: str = "../gdb_printer" # Directory to printers.py used for pprint in gdb
+DATA_EXTRACTOR_DIR: str = "../data_extractor" # Directory to main.py used for extracting debug data
 SECRET_KEY: str = "gEe_5+aBG6;{4#X[bK^]k!w,mCLU-Mr" # Secret key used by flask_socketio for security
 RECEIVE_DEBUG_PING_TIME: int = 15 # After what time will not pinged Debugger class be deleted
 CLEANING_UNUSED_DBG_PROCESSES_TIME: int = 1 # How often should Debugger classes be checked for possible cleaning
@@ -19,7 +19,7 @@ EXPECT_VALUES_AFTER_GDB_COMMAND: list[str] = ["^done", "^error", "^running", "^c
 CGROUP_NAME: str = "informejtycy_debugger.slice" # Name of the cgroup
 COMPILATION_TIMEOUT: int = 8 # How long can program compile
 MAX_CODE_SIZE: int = 5500 # Maximum size of code sent
-DOCKER_IMAGE_BUILD_TIMEOUT: int = 2 # How long can docker image build
+DOCKER_IMAGE_BUILD_TIMEOUT: int = 40 # How long can docker image build
 
 INIT_DATA_TEMPLATE: dict[str: str | bool] = {
     "compilation_error": False,

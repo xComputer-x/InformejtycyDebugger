@@ -189,15 +189,15 @@ class GDBDebugger:
 	def stop(self) -> None:
 		self.logger.debug(f"Stopping container {self.container_name}", self.stop)
 
-		if self.compiled_file_name:
-			os.remove(os.path.join(self.debug_dir, self.compiled_file_name))
-			self.compiled_file_name = ""
+		# if self.compiled_file_name:
+		# 	os.remove(os.path.join(self.debug_dir, self.compiled_file_name))
+		# 	self.compiled_file_name = ""
 		
-		if os.path.exists(os.path.join(self.received_dir, self.input_file_name)) and self.input_file_name != "":
-			os.remove(os.path.join(self.received_dir, self.input_file_name))
+		# if os.path.exists(os.path.join(self.received_dir, self.input_file_name)) and self.input_file_name != "":
+		# 	os.remove(os.path.join(self.received_dir, self.input_file_name))
 
-		if os.path.exists(os.path.join(self.debug_dir, self.stdin_input_file)) and self.stdin_input_file != "":
-			os.remove(os.path.join(self.debug_dir, self.stdin_input_file))
+		# if os.path.exists(os.path.join(self.debug_dir, self.stdin_input_file)) and self.stdin_input_file != "":
+		# 	os.remove(os.path.join(self.debug_dir, self.stdin_input_file))
 
 		self.docker_manager.stop_container(self.container_name)
 		if self.process:

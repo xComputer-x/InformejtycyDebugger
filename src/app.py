@@ -25,7 +25,7 @@ from flask_cors import CORS
 # Flask configuration initialization
 app = Flask(__name__, static_url_path="", static_folder="static/")
 app.config["SECRET_KEY"] = SECRET_KEY
-socketio = SocketIO(app, async_mode="eventlet")
+socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 CORS(app)
 
 # To nicely display messages
