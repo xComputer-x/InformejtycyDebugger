@@ -14,7 +14,7 @@
 - [x] Kontynuowanie kodu (`continue`);
 - [x] Ustawianie i usuwanie breakpointów przed ruchem (ruch == `step`/`finish`/`next`/`continue`/`run`);
     - **UWAGA:** na ten moment demo debuggera nie wspiera ustawiania breakpointów, natomiast serwer je odbiera i ustawia bądź usuwa;
-- [ ] Odsyłanie wyjścia programu;
+- [x] Odsyłanie wyjścia programu;
 - [ ] Omijanie wchodzenia funkcji (`next`);
 - [x] Limit czasu na komendę;
 - [x] Wychwytywanie błędów z sygnałami;
@@ -22,5 +22,5 @@
 - [x] Potencjalny błąd serwera przy zakończeniu debugowania (??);
     - **Znaleziono problem!** Ruch bez upewnienia się, że kod został uruchomiony;
 - [ ] Ładne formatowanie elementów structa;
-- [ ] Wskaźniki do funkcji (`int (*wsk_do_main)(int, char*)`);
+- [x] Wskaźniki do funkcji (`int (*wsk_do_main)(int, char*)`);
 - [ ] Zmienianie wartości zmiennych;
